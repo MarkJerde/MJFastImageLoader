@@ -11,6 +11,7 @@
 		8D15288C203B65FD00843907 /* MJFastImageLoaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D15288B203B65FD00843907 /* MJFastImageLoaderTests.swift */; };
 		8D15288E203B65FD00843907 /* MJFastImageLoader.h in Headers */ = {isa = PBXBuildFile; fileRef = 8D152880203B65FD00843907 /* MJFastImageLoader.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		8D152898203B667500843907 /* MJFastImageLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D152897203B667500843907 /* MJFastImageLoader.swift */; };
+		8D15289A203B7A9700843907 /* MJFastImageLoaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D152899203B7A9700843907 /* MJFastImageLoaderView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -31,6 +32,7 @@
 		8D15288B203B65FD00843907 /* MJFastImageLoaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MJFastImageLoaderTests.swift; sourceTree = "<group>"; };
 		8D15288D203B65FD00843907 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		8D152897203B667500843907 /* MJFastImageLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MJFastImageLoader.swift; sourceTree = "<group>"; };
+		8D152899203B7A9700843907 /* MJFastImageLoaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MJFastImageLoaderView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -76,6 +78,7 @@
 				8D152880203B65FD00843907 /* MJFastImageLoader.h */,
 				8D152897203B667500843907 /* MJFastImageLoader.swift */,
 				8D152881203B65FD00843907 /* Info.plist */,
+				8D152899203B7A9700843907 /* MJFastImageLoaderView.swift */,
 			);
 			path = MJFastImageLoader;
 			sourceTree = "<group>";
@@ -200,6 +203,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8D15289A203B7A9700843907 /* MJFastImageLoaderView.swift in Sources */,
 				8D152898203B667500843907 /* MJFastImageLoader.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
