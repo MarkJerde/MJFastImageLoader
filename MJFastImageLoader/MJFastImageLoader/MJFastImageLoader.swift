@@ -46,21 +46,54 @@ public class MJFastImageLoader {
 
 	// MARK: Public Methods
 
-	public func enqueue(image: Data, priority: Int) -> Int {
+	public func enqueue(image: Data, priority: Priority) -> Int {
 		var uid = -1
 		intakeQueue.sync {
 			uid = nextUID
 			nextUID += 1
+			hintMap[image] = uid
 		}
 		processWorkItem(item: WorkItem(data: image, uid: uid))
 		return uid
+	}
+
+	public func image(image: Data, notification: MJFastImageLoaderNotification?) -> UIImage? {
+		print("lookup")
+		if let uid = hintMap[image] {
+			// Register notification if there is an active work item and we have a notification.
+			print("register \(uid)")
+			if let workItem = workItems[uid] {
+				if let notification = notification {
+					// Insert ourselves at the front.
+					notification.next = workItem.notification
+					workItem.notification = notification
+					print("registered \(uid)")
+				}
+			}
+			return results[uid]
+		}
+		return nil
+	}
+
+	open class MJFastImageLoaderNotification {
+		// Use a linked list because the most likely cases will be zero or one node, and multi-node won't involve searching.
+		var next:MJFastImageLoaderNotification? = nil
+
+		public init() {
+		}
+
+		open func notify(image: UIImage) {
+			next?.notify(image: image)
+		}
 	}
 
 	// MARK: Private Variables
 
 	let intakeQueue = DispatchQueue(label: "MJFastImageLoader.intakeQueue")
 	var nextUID:Int = 0
+	var workItems:[Int:WorkItem] = [:]
 	var results:[Int:UIImage] = [:]
+	var hintMap:[Data:Int] = [:]
 
 	class WorkItem {
 		init(data: Data, uid: Int) {
@@ -74,8 +107,10 @@ public class MJFastImageLoader {
 		let thumbnailMaxPixels = 400.0
 		let cgThumbnailMaxPixels = CGFloat(400)
 		var currentImage:UIImage? = nil
+		var notification:MJFastImageLoaderNotification? = nil
 
 		public func next() -> UIImage? {
+			print("state \(state)")
 			switch state {
 			case 0:
 				// Fastest first.  Use thumbnail if present.
@@ -101,6 +136,7 @@ public class MJFastImageLoader {
 					}
 
 					currentImage = result
+					notification?.notify(image: result)
 					return result
 				}
 
@@ -123,6 +159,7 @@ public class MJFastImageLoader {
 				{
 					let result = UIImage(cgImage: thumbnail)
 					currentImage = result
+					notification?.notify(image: result)
 					return result
 				}
 
@@ -145,6 +182,10 @@ public class MJFastImageLoader {
 					let resultImage = UIGraphicsGetImageFromCurrentImageContext()
 					UIGraphicsEndImageContext()
 					currentImage = nil
+					if ( nil != resultImage )
+					{
+						notification?.notify(image: resultImage!)
+					}
 					return resultImage
 				}
 
@@ -158,15 +199,26 @@ public class MJFastImageLoader {
 
 	func processWorkItem(item: WorkItem?) {
 		processingQueue.async {
-			if let result = item?.next() {
-				self.results[item!.uid] = result
-				self.processingQueue.async {
-					self.processWorkItem(item: item) // Task to process next level of image
+			if let item = item {
+				self.workItems[item.uid] = item
+				if let result = item.next() {
+					print("next!")
+					self.results[item.uid] = result
+					self.processingQueue.async {
+						/*print("sleep")
+						sleep(10)
+						print("slept")*/
+						self.processWorkItem(item: item) // Task to process next level of image
+					}
+				}
+				else {
+					// nil result so it is done.  Remove from work items.
+					self.workItems.removeValue(forKey: item.uid)
 				}
 			}
 		}
 	}
 
 	let processingQueue = DispatchQueue(label: "MJFastImageLoader.processingQueue")
-	var workItems:[Int:[WorkItem]] = [:]
+	var workItemQueues:[Int:[WorkItem]] = [:]
 }
