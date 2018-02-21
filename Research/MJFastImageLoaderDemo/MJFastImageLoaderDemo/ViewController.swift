@@ -81,6 +81,7 @@ class ViewController: UIViewController {
 	var running = false
 	var enabled = true
 	var imageDatas:[Data] = []
+	var imageDatasInUse:[Data?] = [nil,nil,nil,nil,nil,nil]
 	var imageUpdaters:[UIImageUpdater?] = [nil,nil,nil,nil,nil,nil]
 	var imageDataIndex = 0
 
@@ -238,8 +239,12 @@ class ViewController: UIViewController {
 	func setNewImage( imgView: UIImageView ) {
 		imagesSet += 1
 		print("set image \(imageViews.index(of: imgView)) from index \(imageDataIndex % imageDatas.count)")
-		if let updater = imageUpdaters[imageViews.index(of: imgView)!] {
+		let imageIndex = imageViews.index(of: imgView)!
+		if let updater = imageUpdaters[imageIndex] {
 			updater.cancel()
+		}
+		if let data = imageDatasInUse[imageIndex] {
+			MJFastImageLoader.shared.cancel(image: data)
 		}
 		let data = imageDatas[imageDataIndex % imageDatas.count]
 		imageDataIndex += 1
@@ -247,9 +252,10 @@ class ViewController: UIViewController {
 		{
 			_ = MJFastImageLoader.shared.enqueue(image: data, priority: .critical)
 			DispatchQueue.main.sync {
-				print("do set image \(imageViews.index(of: imgView)) from index \(imageDatas.index(of: data))")
+				print("do set image \(imageIndex) from index \(imageDatas.index(of: data))")
 				let updater = UIImageUpdater(imageView: imgView)
-				imageUpdaters[imageViews.index(of: imgView)!] = updater
+				imageDatasInUse[imageIndex] = data
+				imageUpdaters[imageIndex] = updater
 				imgView.image = MJFastImageLoader.shared.image(image: data, notification: updater)
 				if ( nil != imgView.image )
 				{
