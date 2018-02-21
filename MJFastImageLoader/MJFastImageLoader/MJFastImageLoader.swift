@@ -32,6 +32,8 @@ public class MJFastImageLoader {
 	// Allow a singleton, for those who prefer that pattern
 	public static let shared = MJFastImageLoader()
 
+	public static var wasteCount = 0
+
 	// Allow instance use, for those who prefer that
 	public init() {
 	}
@@ -50,11 +52,15 @@ public class MJFastImageLoader {
 		thumbnailPixels = Float(pixels)
 	}
 
+	public func setMinimalCaching( value: Bool ) {
+		minimalCaching = value
+	}
+
 	public func enqueue(image: Data, priority: Priority) -> Int {
 		var uid = -1
 		var doProcess = true
 		intakeQueue.sync {
-			if let index = hintMap.index(forKey: image)
+			if let index = minimalCaching ? nil : hintMap.index(forKey: image)
 			{
 				uid = hintMap[index].value
 				uid = hintMap[image]!
@@ -147,6 +153,7 @@ public class MJFastImageLoader {
 	// MARK: Private Variables
 
 	var thumbnailPixels:Float = 400.0
+	var minimalCaching = false // To limit benefit for test / demo
 	let intakeQueue = DispatchQueue(label: "MJFastImageLoader.intakeQueue")
 	var nextUID:Int = 0
 	var workItems:[Int:WorkItem] = [:]
@@ -274,6 +281,11 @@ public class MJFastImageLoader {
 
 		func notify(notification: MJFastImageLoaderNotification?, image: UIImage, previous: MJFastImageLoaderNotification?) {
 			// Handle the linked list ourselves so it is not vulnerable to breakage by implementors of items in it
+			if ( nil == notification && nil == previous )
+			{
+				print("old nobody cares")
+				MJFastImageLoader.wasteCount += 1
+			}
 			if let notification = notification {
 				if ( notification.cancelled ) {
 					// Clear out cancelled item
