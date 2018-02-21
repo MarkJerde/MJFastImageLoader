@@ -46,15 +46,58 @@ public class MJFastImageLoader {
 
 	// MARK: Public Methods
 
+	public func setThumbnailPx( pixels: Int ) {
+		thumbnailPixels = Float(pixels)
+	}
+
 	public func enqueue(image: Data, priority: Priority) -> Int {
 		var uid = -1
+		var doProcess = true
 		intakeQueue.sync {
-			uid = nextUID
-			nextUID += 1
-			hintMap[image] = uid
+			if let index = hintMap.index(forKey: image)
+			{
+				uid = hintMap[index].value
+				uid = hintMap[image]!
+				if let workItem = workItems[uid]
+				{
+					workItem.retain()
+				}
+				else if ( nil != results[uid] )
+				{
+					// We have results but no work item, so we must be fully formed
+					doProcess = false
+				}
+			}
+			else
+			{
+				uid = nextUID
+				nextUID += 1
+				hintMap[image] = uid
+			}
 		}
-		processWorkItem(item: WorkItem(data: image, uid: uid))
+		if ( doProcess ) {
+			processWorkItem(item: WorkItem(data: image, uid: uid))
+		}
 		return uid
+	}
+
+	public func cancel(image: Data) {
+		if let index = hintMap.index(forKey: image)
+		{
+			var uid = -1
+			uid = hintMap[index].value
+			uid = hintMap[image]!
+			if let workItem = workItems[uid]
+			{
+				if ( !workItem.release() ) {
+
+				}
+			}
+			else if ( nil == results[uid] )
+			{
+				print("bad things not old")
+			}
+		}
 	}
 
 	public func image(image: Data, notification: MJFastImageLoaderNotification?) -> UIImage? {
@@ -67,6 +110,8 @@ public class MJFastImageLoader {
 					// Insert ourselves at the front.
 					notification.next = workItem.notification
 					workItem.notification = notification
+					workItem.retain() // For the notification
+					notification.workItem = workItem
 					print("registered \(uid)")
 				}
 			}
@@ -75,20 +120,33 @@ public class MJFastImageLoader {
 		return nil
 	}
 
+	public func flush() {
+		workItems = [:]
+		results = [:]
+		hintMap = [:]
+	}
+
 	open class MJFastImageLoaderNotification {
 		// Use a linked list because the most likely cases will be zero or one node, and multi-node won't involve searching.
 		var next:MJFastImageLoaderNotification? = nil
+		var cancelled = false
+		var workItem:WorkItem? = nil
 
 		public init() {
 		}
 
 		open func notify(image: UIImage) {
-			next?.notify(image: image)
+		}
+
+		open func cancel() {
+			cancelled = true
+			_ = workItem?.release() // for our retain
 		}
 	}
 
 	// MARK: Private Variables
 
+	var thumbnailPixels:Float = 400.0
 	let intakeQueue = DispatchQueue(label: "MJFastImageLoader.intakeQueue")
 	var nextUID:Int = 0
 	var workItems:[Int:WorkItem] = [:]
@@ -104,12 +162,30 @@ public class MJFastImageLoader {
 		let data:Data
 		let uid:Int
 		var state:Int = 0
-		let thumbnailMaxPixels = 400.0
-		let cgThumbnailMaxPixels = CGFloat(400)
 		var currentImage:UIImage? = nil
 		var notification:MJFastImageLoaderNotification? = nil
 
-		public func next() -> UIImage? {
+		public static let retainQueue = DispatchQueue(label: "MJFastImageLoader.workItemRetention")
+		var retainCount = 1
+
+		public func retain () {
+			WorkItem.retainQueue.sync {
+				self.retainCount += 1
+			}
+		}
+		public func release () -> Bool {
+			var nonZero = true
+			WorkItem.retainQueue.sync {
+				self.retainCount -= 1
+				nonZero = self.retainCount > 0
+			}
+			return nonZero
+		}
+
+		public func next( thumbnailPixels: Float ) -> UIImage? {
+			let thumbnailMaxPixels = thumbnailPixels
+			let cgThumbnailMaxPixels = CGFloat(thumbnailPixels)
+
 			print("state \(state)")
 			switch state {
 			case 0:
@@ -136,11 +212,11 @@ public class MJFastImageLoader {
 					}
 
 					currentImage = result
-					notification?.notify(image: result)
+					notify(notification: notification, image: result, previous: nil)
 					return result
 				}
 
-				return next() // Immediately provide next image if we couldn't provide this one.
+				return next(thumbnailPixels: thumbnailPixels) // Immediately provide next image if we couldn't provide this one.
 
 			case 1:
 				// Generate better thumbnail if appropriate.
@@ -159,11 +235,11 @@ public class MJFastImageLoader {
 				{
 					let result = UIImage(cgImage: thumbnail)
 					currentImage = result
-					notification?.notify(image: result)
+					notify(notification: notification, image: result, previous: nil)
 					return result
 				}
 
-				return next() // Immediately provide next image if we couldn't provide this one.
+				return next(thumbnailPixels: thumbnailPixels) // Immediately provide next image if we couldn't provide this one.
 
 			case 2:
 				// Generate final image last.
@@ -182,9 +258,9 @@ public class MJFastImageLoader {
 					let resultImage = UIGraphicsGetImageFromCurrentImageContext()
 					UIGraphicsEndImageContext()
 					currentImage = nil
-					if ( nil != resultImage )
+					if let resultImage = resultImage
 					{
-						notification?.notify(image: resultImage!)
+						notify(notification: notification, image: resultImage, previous: nil)
 					}
 					return resultImage
 				}
@@ -195,13 +271,39 @@ public class MJFastImageLoader {
 				return nil
 			}
 		}
+
+		func notify(notification: MJFastImageLoaderNotification?, image: UIImage, previous: MJFastImageLoaderNotification?) {
+			// Handle the linked list ourselves so it is not vulnerable to breakage by implementors of items in it
+			if let notification = notification {
+				if ( notification.cancelled ) {
+					// Clear out cancelled item
+					if let previous = previous {
+						previous.next = notification.next
+					}
+					else {
+						self.notification = notification.next
+					}
+				}
+				else {
+					notification.notify(image: image)
+				}
+
+				// Notify next link in the list
+				notify(notification: notification.next, image: image, previous: notification)
+			}
+		}
 	}
 
 	func processWorkItem(item: WorkItem?) {
-		processingQueue.async {
-			if let item = item {
-				self.workItems[item.uid] = item
-				if let result = item.next() {
+		if let item = item {
+			if ( item.retainCount <= 0 )
+			{
+				print("skipped old")
+				return
+			}
+			self.workItems[item.uid] = item
+			processingQueue.async {
+				if let result = item.next(thumbnailPixels: self.thumbnailPixels) {
 					print("next!")
 					self.results[item.uid] = result
 					self.processingQueue.async {
