@@ -214,7 +214,10 @@ class ViewController: UIViewController {
 
 		if ( running ) {
 			// Select a random UIImageView and update it
-			let randomImageView = imageViews.shuffled().first!
+			let random = false
+			let randomImageView = random
+				? imageViews.shuffled().first!
+				: imageViews[imageDataIndex % imageViews.count]
 
 			// Blank it out
 			DispatchQueue.main.sync {
