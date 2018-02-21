@@ -50,7 +50,9 @@ public class MJFastImageLoader {
 		case prospective = 100
 	}
 
-	// MARK: Public Methods
+	// MARK: Public Properties - Settings
+
+	// MARK: Public Methods - Settings
 
 	public func setThumbnailPx( pixels: Int ) {
 		thumbnailPixels = Float(pixels)
@@ -59,6 +61,8 @@ public class MJFastImageLoader {
 	public func setMinimalCaching( value: Bool ) {
 		minimalCaching = value
 	}
+
+	// MARK: Public Methods - Interaction
 
 	public func enqueue(image: Data, priority: Priority) -> Int {
 		var uid = -1
@@ -143,13 +147,24 @@ public class MJFastImageLoader {
 		hintMap = [:]
 	}
 
-	open class MJFastImageLoaderNotification {
+	open class MJFastImageLoaderNotification: Equatable {
 		// Use a linked list because the most likely cases will be zero or one node, and multi-node won't involve searching.
 		var next:MJFastImageLoaderNotification? = nil
 		var cancelled = false
 		var workItem:WorkItem? = nil
+		private let batch:MJFastImageLoaderBatch?
 
-		public init() {
+		public init(batch: MJFastImageLoaderBatch?) {
+			self.batch = batch
+		}
+
+		func queueNotifyEvent(image: UIImage) {
+			if let batch = batch {
+				batch.queueNotifyEvent(image: image, notification: self)
+			}
+			else {
+				notify(image: image)
+			}
 		}
 
 		open func notify(image: UIImage) {
@@ -159,12 +174,80 @@ public class MJFastImageLoader {
 			cancelled = true
 			_ = workItem?.release() // for our retain
 		}
+
+		public static func == (lhs: MJFastImageLoaderNotification, rhs: MJFastImageLoaderNotification) -> Bool {
+			return lhs === rhs
+		}
 	}
 
-	// MARK: Private Variables
+	open class MJFastImageLoaderBatch {
+		public static let shared = MJFastImageLoaderBatch()
+
+		open var batchUpdateQuantityLimit = 1
+		public var batchUpdateTimeLimit = 0.1
+		
+		private var notifications:[MJFastImageLoaderNotification] = []
+		private var images:[UIImage] = []
+		private let queue = DispatchQueue(label: "MJFastImageLoaderBatch.queue")
+		private var timeLimitWorkItem:DispatchWorkItem? = nil
+
+		func queueNotifyEvent(image: UIImage, notification: MJFastImageLoaderNotification) {
+			queue.sync {
+				if let index = notifications.index(of: notification) {
+					images[index] = image
+				}
+				else {
+					notifications.append(notification)
+					images.append(image)
+				}
+
+				var nonCancelledCount = 0
+				for i in 0..<notifications.count {
+					if ( !notifications[i].cancelled ) {
+						nonCancelledCount += 1
+					}
+				}
+
+				let first = 1 == nonCancelledCount
+				let hitQuota = nonCancelledCount >= batchUpdateQuantityLimit
+				if ( first ) {
+					// In case the previous timer were still running for content that had all been cancelled.
+					timeLimitWorkItem?.cancel()
+					timeLimitWorkItem = nil
+				}
+				if ( first || hitQuota ) {
+					let timeout:Double = hitQuota ? 0.0 : batchUpdateTimeLimit
+					//let timeout2:Int = hitQuota ? 0 : 5
+					timeLimitWorkItem = DispatchWorkItem {
+						// Cancel the timeout, if there were one
+						self.timeLimitWorkItem?.cancel()
+						self.timeLimitWorkItem = nil
+
+						// Do our work
+						DispatchQueue.main.sync {
+							// Use the main queue so that batches will draw as one.  Yes, this matters.
+							for i in 0..<self.notifications.count {
+								if ( !self.notifications[i].cancelled ) {
+									self.notifications[i].notify(image: self.images[i])
+								}
+							}
+						}
+						self.notifications = []
+						self.images = []
+					}
+					queue.asyncAfter(deadline: .now() + timeout, execute: timeLimitWorkItem!)
+				}
+			}
+		}
+	}
+
+	// MARK: Private Variables - Settings
 
 	var thumbnailPixels:Float = 400.0
 	var minimalCaching = false // To limit benefit for test / demo
+
+	// MARK: Private Variables - Other
+
 	let intakeQueue = DispatchQueue(label: "MJFastImageLoader.intakeQueue")
 	var nextUID:Int = 0
 	var workItems:[Int:WorkItem] = [:]
@@ -314,7 +397,7 @@ public class MJFastImageLoader {
 					}
 				}
 				else {
-					notification.notify(image: image)
+					notification.queueNotifyEvent(image: image)
 				}
 
 				// Notify next link in the list
@@ -324,7 +407,7 @@ public class MJFastImageLoader {
 	}
 
 	func processWorkItem() {
-
+// fixme - wrap this all in a non-concurrent GCD queue
 		if let item = nextWorkItem() {
 			if ( item.retainCount <= 0 )
 			{

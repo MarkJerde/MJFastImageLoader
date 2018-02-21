@@ -130,17 +130,26 @@ class ViewController: UIViewController {
 	public class UIImageUpdater : MJFastImageLoader.MJFastImageLoaderNotification {
 		let imageView:UIImageView
 
-		init(imageView: UIImageView) {
+		init(imageView: UIImageView, batch: MJFastImageLoader.MJFastImageLoaderBatch?) {
 			self.imageView = imageView
-			super.init()
+			super.init(batch: batch)
 		}
 
 		override func notify(image: UIImage) {
 			print("notify")
-			DispatchQueue.main.async {
-				print("update \(self.imageView.accessibilityHint)")
-				self.imageView.image = image
+			if ( Thread.isMainThread ) {
+				self.updateImage(image: image)
 			}
+			else {
+				DispatchQueue.main.async {
+					self.updateImage(image: image)
+				}
+			}
+		}
+
+		func updateImage(image: UIImage) {
+			print("update \(self.imageView.accessibilityHint) \(Date().timeIntervalSince1970)")
+			self.imageView.image = image
 		}
 	}
 
@@ -183,6 +192,9 @@ class ViewController: UIViewController {
 	func step() {
 		// Clear the cache
 		MJFastImageLoader.shared.flush()
+
+		// Configure for simultaneous burst display of content
+		MJFastImageLoader.MJFastImageLoaderBatch.shared.batchUpdateQuantityLimit = 6
 		
 		// Blank out all images
 		imageViews.forEach({ (imageView) in
@@ -200,6 +212,9 @@ class ViewController: UIViewController {
 
 		// Start auto activity in three seconds
 		self.testQueue.asyncAfter(deadline: .now() + .seconds(3), execute: {
+			// Configure for rapid rolling display of content
+			MJFastImageLoader.MJFastImageLoaderBatch.shared.batchUpdateQuantityLimit = 1
+
 			self.autoRefresh()
 		})
 	}
@@ -256,7 +271,7 @@ class ViewController: UIViewController {
 			_ = MJFastImageLoader.shared.enqueue(image: data, priority: .critical)
 			DispatchQueue.main.sync {
 				print("do set image \(imageIndex) from index \(imageDatas.index(of: data))")
-				let updater = UIImageUpdater(imageView: imgView)
+				let updater = UIImageUpdater(imageView: imgView, batch: MJFastImageLoader.MJFastImageLoaderBatch.shared)
 				imageDatasInUse[imageIndex] = data
 				imageUpdaters[imageIndex] = updater
 				imgView.image = MJFastImageLoader.shared.image(image: data, notification: updater)
