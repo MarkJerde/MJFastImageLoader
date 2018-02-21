@@ -36,8 +36,12 @@ public class MJFastImageLoader {
 
 	// Allow instance use, for those who prefer that
 	public init() {
+		for _ in 1...criticalProcessingConcurrencyLimit {
+			criticalProcessingDispatchQueueSemaphore.signal()
+		}
 	}
 
+	// Priority level.  These could be arbitrary values, but the priority will be incremented one for each processing level, so a minimum separation of three is a good idea.
 	public enum Priority: Int {
 		case critical = 1
 		case high = 5
@@ -82,7 +86,14 @@ public class MJFastImageLoader {
 			}
 		}
 		if ( doProcess ) {
-			processWorkItem(item: WorkItem(data: image, uid: uid))
+			// fixme - shouldn't create new workitem if we found one above
+			let workItem = WorkItem(data: image, uid: uid, basePriority: priority)
+			workItems[workItem.uid] = workItem
+			if ( nil == workItemQueues[workItem.priority] ) {
+				workItemQueues[workItem.priority] = []
+			}
+			workItemQueues[workItem.priority]!.append(workItem)
+			processWorkItem()
 		}
 		return uid
 	}
@@ -161,13 +172,19 @@ public class MJFastImageLoader {
 	var hintMap:[Data:Int] = [:]
 
 	class WorkItem {
-		init(data: Data, uid: Int) {
+		init(data: Data, uid: Int, basePriority: Priority) {
 			self.data = data
 			self.uid = uid
+			self.basePriority = basePriority
+		}
+
+		var priority: Int {
+			return basePriority.rawValue + state
 		}
 
 		let data:Data
 		let uid:Int
+		let basePriority:Priority
 		var state:Int = 0
 		var currentImage:UIImage? = nil
 		var notification:MJFastImageLoaderNotification? = nil
@@ -306,33 +323,82 @@ public class MJFastImageLoader {
 		}
 	}
 
-	func processWorkItem(item: WorkItem?) {
-		if let item = item {
+	func processWorkItem() {
+
+		if let item = nextWorkItem() {
 			if ( item.retainCount <= 0 )
 			{
 				print("skipped old")
 				return
 			}
-			self.workItems[item.uid] = item
-			processingQueue.async {
-				if let result = item.next(thumbnailPixels: self.thumbnailPixels) {
-					print("next!")
-					self.results[item.uid] = result
-					self.processingQueue.async {
-						/*print("sleep")
-						sleep(10)
-						print("slept")*/
-						self.processWorkItem(item: item) // Task to process next level of image
-					}
+			if ( item.priority > 1 ) {
+				processingQueue.async {
+					self.executeWorkItem(item: item)
 				}
-				else {
-					// nil result so it is done.  Remove from work items.
-					self.workItems.removeValue(forKey: item.uid)
+			}
+			else {
+				criticalProcessingDispatchQueue.async {
+					self.dispatchCriticalWorkItem(workItem: item)
 				}
 			}
 		}
 	}
 
+	func dispatchCriticalWorkItem( workItem: WorkItem ) {
+		// Since the criticalProcessingWorkQueue is concurrent, limit the concurrent volume here.
+		criticalProcessingDispatchQueueSemaphore.wait()
+		criticalProcessingWorkQueue.async {
+			self.executeWorkItem(item: workItem)
+			self.criticalProcessingDispatchQueueSemaphore.signal()
+		}
+	}
+
+	func executeWorkItem( item: WorkItem ) {
+		if let result = item.next(thumbnailPixels: self.thumbnailPixels) {
+			print("next!")
+			results[item.uid] = result
+			processingQueue.async {
+				/*print("sleep")
+				sleep(10)
+				print("slept")*/
+				if ( nil == self.workItemQueues[item.priority] ) {
+					self.workItemQueues[item.priority] = []
+				}
+				self.workItemQueues[item.priority]?.append(item) // To process next level of image
+				self.processWorkItem()
+			}
+		}
+		else {
+			// nil result so it is done.  Remove from work items.
+			workItems.removeValue(forKey: item.uid)
+		}
+	}
+
+	func nextWorkItem() -> WorkItem? {
+		var result:WorkItem? = nil
+		let priorities = workItemQueues.keys.sorted()
+
+		outerLoop: for priority in priorities {
+			if let queue = workItemQueues[priority] {
+				var removeCount = 0
+				for workItem in queue {
+					removeCount += 1
+					if ( workItem.retainCount > 0 ) {
+						workItemQueues[priority]!.removeFirst(removeCount)
+						result = workItem
+						break outerLoop
+					}
+				}
+			}
+		}
+
+		return result
+	}
+
+	var criticalProcessingConcurrencyLimit = 12
+	private let criticalProcessingDispatchQueueSemaphore = DispatchSemaphore(value: 0)
+	let criticalProcessingDispatchQueue = DispatchQueue(label: "MJFastImageLoader.criticalProcessingDispatchQueue")
+	let criticalProcessingWorkQueue = DispatchQueue(label: "MJFastImageLoader.criticalProcessingQueue", qos: .userInitiated, attributes: .concurrent)
 	let processingQueue = DispatchQueue(label: "MJFastImageLoader.processingQueue")
 	var workItemQueues:[Int:[WorkItem]] = [:]
 }
