@@ -1,0 +1,5 @@
+Batch updates based on limits: time, quantity
+LRU to reduce memory load?
+Don't create WorkItem if found WorkItem on enqueue.
+Adjust to higher priority if enqueue found existing WorkItem of lower priority.
+Adjust priority if early renders failed leaving no current result.
