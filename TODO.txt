@@ -3,3 +3,7 @@ LRU to reduce memory load?
 Don't create WorkItem if found WorkItem on enqueue.
 Adjust to higher priority if enqueue found existing WorkItem of lower priority.
 Adjust priority if early renders failed leaving no current result.
+Methods to set / change:
+* Critical concurrent count limit
+* Batching quotas
+* Cache volume quota
