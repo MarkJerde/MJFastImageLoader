@@ -108,7 +108,8 @@ class ViewController: UIViewController {
 		stepButton.isEnabled = false
 		stopButton.isEnabled = false
 
-		MJFastImageLoader.shared.setMinimalCaching( value: true )
+		MJFastImageLoader.shared.ignoreCacheForTest = true
+		MJFastImageLoader.shared.setCriticalProcessingConcurrencyLimit(limit: 6)
 
 		self.startTest()
 	}
@@ -183,7 +184,7 @@ class ViewController: UIViewController {
 
 	@IBAction func changeThumbPx(_ sender: UITextField) {
 		if let value = sender.text {
-			MJFastImageLoader.shared.setThumbnailPx(pixels: Int(value)!)
+			MJFastImageLoader.shared.thumbnailPixels = Float(value)!
 		}
 	}
 

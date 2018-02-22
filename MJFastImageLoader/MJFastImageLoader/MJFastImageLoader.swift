@@ -52,14 +52,30 @@ public class MJFastImageLoader {
 
 	// MARK: Public Properties - Settings
 
+	public var thumbnailPixels:Float = 400.0
+	public var ignoreCacheForTest = false // To limit benefit for test / demo
+
 	// MARK: Public Methods - Settings
 
-	public func setThumbnailPx( pixels: Int ) {
-		thumbnailPixels = Float(pixels)
-	}
+	public func setCriticalProcessingConcurrencyLimit( limit: Int ) {
+		if ( limit < self.criticalProcessingConcurrencyLimit ) {
+			// Adjust down
+			// Just use the intakeQueue so we don't block while waiting for work to complete
+			intakeQueue.async {
+				repeat {
+					self.criticalProcessingDispatchQueueSemaphore.wait()
+					self.criticalProcessingConcurrencyLimit -= 1
+				} while ( limit < self.criticalProcessingConcurrencyLimit )
 
-	public func setMinimalCaching( value: Bool ) {
-		minimalCaching = value
+			}
+		}
+		else {
+			// Adjust up if needed
+			while ( limit > self.criticalProcessingConcurrencyLimit ) {
+				self.criticalProcessingDispatchQueueSemaphore.signal()
+				self.criticalProcessingConcurrencyLimit += 1
+			}
+		}
 	}
 
 	// MARK: Public Methods - Interaction
@@ -68,7 +84,7 @@ public class MJFastImageLoader {
 		var uid = -1
 		var doProcess = true
 		intakeQueue.sync {
-			if nil != (minimalCaching ? nil : hintMap.index(forKey: image))
+			if nil != (ignoreCacheForTest ? nil : hintMap.index(forKey: image))
 			{
 				uid = hintMap[image]!
 				if let workItem = workItems[uid]
@@ -253,8 +269,7 @@ public class MJFastImageLoader {
 
 	// MARK: Private Variables - Settings
 
-	var thumbnailPixels:Float = 400.0
-	var minimalCaching = false // To limit benefit for test / demo
+	var criticalProcessingConcurrencyLimit = 12
 
 	// MARK: Private Variables - Other
 
@@ -494,7 +509,6 @@ public class MJFastImageLoader {
 		return result
 	}
 
-	var criticalProcessingConcurrencyLimit = 12
 	private let criticalProcessingDispatchQueueSemaphore = DispatchSemaphore(value: 0)
 	let criticalProcessingDispatchQueue = DispatchQueue(label: "MJFastImageLoader.criticalProcessingDispatchQueue")
 	let criticalProcessingWorkQueue = DispatchQueue(label: "MJFastImageLoader.criticalProcessingQueue", qos: .userInitiated, attributes: .concurrent)

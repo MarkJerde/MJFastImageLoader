@@ -1,4 +1,3 @@
 LRU to reduce memory load?
 Methods to set / change:
-* Critical concurrent count limit
 * Cache volume quota
