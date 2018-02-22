@@ -68,18 +68,25 @@ public class MJFastImageLoader {
 		var uid = -1
 		var doProcess = true
 		intakeQueue.sync {
-			if let index = minimalCaching ? nil : hintMap.index(forKey: image)
+			if nil != (minimalCaching ? nil : hintMap.index(forKey: image))
 			{
-				uid = hintMap[index].value
 				uid = hintMap[image]!
 				if let workItem = workItems[uid]
 				{
 					workItem.retain()
+
+					// Increase priority if needed
+					if priority.rawValue < workItem.basePriority.rawValue {
+						workItem.basePriority = priority
+					}
 				}
 				else if ( nil != results[uid] )
 				{
 					// We have results but no work item, so we must be fully formed
 					doProcess = false
+				}
+				else {
+					print("error to have no workItem or result but have hint")
 				}
 			}
 			else
@@ -87,16 +94,19 @@ public class MJFastImageLoader {
 				uid = nextUID
 				nextUID += 1
 				hintMap[image] = uid
+
+				let workItem = WorkItem(data: image, uid: uid, basePriority: priority)
+				workItems[uid] = workItem
 			}
 		}
 		if ( doProcess ) {
-			// fixme - shouldn't create new workitem if we found one above
-			let workItem = WorkItem(data: image, uid: uid, basePriority: priority)
-			workItems[workItem.uid] = workItem
-			if ( nil == workItemQueues[workItem.priority] ) {
-				workItemQueues[workItem.priority] = []
+			let workItem = workItems[uid]!
+			workItemQueueDispatchQueue.sync {
+				if ( nil == workItemQueues[workItem.priority] ) {
+					workItemQueues[workItem.priority] = []
+				}
+				workItemQueues[workItem.priority]!.append(workItem)
 			}
-			workItemQueues[workItem.priority]!.append(workItem)
 			processWorkItem()
 		}
 		return uid
@@ -262,12 +272,13 @@ public class MJFastImageLoader {
 		}
 
 		var priority: Int {
-			return basePriority.rawValue + state
+			// Only add state to decrease priority if we have rendered something already
+			return basePriority.rawValue + ((nil == currentImage) ? 0 : state)
 		}
 
 		let data:Data
 		let uid:Int
-		let basePriority:Priority
+		var basePriority:Priority
 		var state:Int = 0
 		var currentImage:UIImage? = nil
 		var notification:MJFastImageLoaderNotification? = nil
@@ -444,10 +455,12 @@ public class MJFastImageLoader {
 				/*print("sleep")
 				sleep(10)
 				print("slept")*/
-				if ( nil == self.workItemQueues[item.priority] ) {
-					self.workItemQueues[item.priority] = []
+				self.workItemQueueDispatchQueue.sync {
+					if ( nil == self.workItemQueues[item.priority] ) {
+						self.workItemQueues[item.priority] = []
+					}
+					self.workItemQueues[item.priority]?.append(item) // To process next level of image
 				}
-				self.workItemQueues[item.priority]?.append(item) // To process next level of image
 				self.processWorkItem()
 			}
 		}
@@ -459,17 +472,20 @@ public class MJFastImageLoader {
 
 	func nextWorkItem() -> WorkItem? {
 		var result:WorkItem? = nil
-		let priorities = workItemQueues.keys.sorted()
 
-		outerLoop: for priority in priorities {
-			if let queue = workItemQueues[priority] {
-				var removeCount = 0
-				for workItem in queue {
-					removeCount += 1
-					if ( workItem.retainCount > 0 ) {
-						workItemQueues[priority]!.removeFirst(removeCount)
-						result = workItem
-						break outerLoop
+		workItemQueueDispatchQueue.sync {
+			let priorities = workItemQueues.keys.sorted()
+
+			outerLoop: for priority in priorities {
+				if let queue = workItemQueues[priority] {
+					var removeCount = 0
+					for workItem in queue {
+						removeCount += 1
+						if ( workItem.retainCount > 0 ) {
+							workItemQueues[priority]!.removeFirst(removeCount)
+							result = workItem
+							break outerLoop
+						}
 					}
 				}
 			}
@@ -484,4 +500,6 @@ public class MJFastImageLoader {
 	let criticalProcessingWorkQueue = DispatchQueue(label: "MJFastImageLoader.criticalProcessingQueue", qos: .userInitiated, attributes: .concurrent)
 	let processingQueue = DispatchQueue(label: "MJFastImageLoader.processingQueue")
 	var workItemQueues:[Int:[WorkItem]] = [:]
+	let workItemQueueDispatchQueue = DispatchQueue(label: "MJFastImageLoader.workItemQueueDispatchQueue")
+
 }
