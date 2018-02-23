@@ -290,16 +290,20 @@ class ViewController: UIViewController {
 			switch approach {
 			case 1:
 				// http://nshipster.com/image-resizing/
-				if let image = CIImage(data: data) {
+				if let image = CGImageSourceCreateWithData(data as CFData, nil) {
 
-					let filter = CIFilter(name: "CILanczosScaleTransform")!
-					filter.setValue(image, forKey: "inputImage")
-					filter.setValue(0.5, forKey: "inputScale")
-					filter.setValue(1.0, forKey: "inputAspectRatio")
-					let outputImage = filter.value(forKey: "outputImage") as! CIImage
+					var maxy:CGFloat = 1.0
+					DispatchQueue.main.sync {
+						maxy = max( imgView.frame.size.width, imgView.frame.size.height)
+					}
 
-					let context = CIContext(options: [kCIContextUseSoftwareRenderer: false])
-					let scaledImage = UIImage(cgImage: context.createCGImage(outputImage, from: outputImage.extent)!)
+					let options: [NSString: NSObject] = [
+					kCGImageSourceThumbnailMaxPixelSize: maxy as NSNumber,
+					kCGImageSourceCreateThumbnailFromImageAlways: true as NSNumber
+					]
+
+					let scaledImage = CGImageSourceCreateThumbnailAtIndex(image, 0, options as CFDictionary).flatMap { UIImage(cgImage: $0) }
+
 
 					DispatchQueue.main.sync {
 						imgView.image = scaledImage
