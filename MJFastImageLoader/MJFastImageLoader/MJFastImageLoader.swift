@@ -53,6 +53,8 @@ public class MJFastImageLoader {
 	// MARK: Public Properties - Settings
 
 	public var thumbnailPixels:Float = 400.0
+	public var maximumCachedImages = 150
+	public var maximumCachedMegabytes = 1000
 	public var ignoreCacheForTest = false // To limit benefit for test / demo
 
 	// MARK: Public Methods - Settings
@@ -114,6 +116,32 @@ public class MJFastImageLoader {
 
 				let workItem = WorkItem(data: image, uid: uid, basePriority: priority)
 				workItems[uid] = workItem
+				leastRecentlyUsed.append(image)
+
+				if ( leastRecentlyUsed.count > maximumCachedImages && !ignoreCacheForTest ) {
+					// Cache limits are incompatible with ignoreCacheForTest.
+
+					// Fabrication of a traditional for-loop, since we are removing N items matching a criteria from an array, starting at the front of the array
+					var i = 0
+					var count = leastRecentlyUsed.count
+					while ( i < count ) {
+						if ( true ) {
+							let lru = leastRecentlyUsed[i]
+							let index = hintMap[lru]!
+							results[index] = nil
+							workItems.removeValue(forKey: index)
+							hintMap[lru] = nil
+							leastRecentlyUsed.remove(at: i)
+							i -= 1
+							count -= 1
+						}
+
+						if ( hintMap.count <= maximumCachedImages ) {
+							break
+						}
+						i += 1
+					}
+				}
 			}
 		}
 		if ( doProcess ) {
@@ -163,6 +191,13 @@ public class MJFastImageLoader {
 					print("registered \(uid)")
 				}
 			}
+
+			// Move to back of LRU since someone asked for it
+			if leastRecentlyUsed.contains(image) {
+				leastRecentlyUsed.remove(at: leastRecentlyUsed.index(of: image)!)
+			}
+			leastRecentlyUsed.append(image)
+
 			return results[uid]
 		}
 		return nil
@@ -172,6 +207,7 @@ public class MJFastImageLoader {
 		workItems = [:]
 		results = [:]
 		hintMap = [:]
+		leastRecentlyUsed = []
 	}
 
 	open class MJFastImageLoaderNotification: Equatable {
@@ -278,6 +314,7 @@ public class MJFastImageLoader {
 	var nextUID:Int = 0
 	var workItems:[Int:WorkItem] = [:]
 	var results:[Int:UIImage] = [:]
+	var leastRecentlyUsed:[Data] = []
 	var hintMap:[Data:Int] = [:]
 
 	class WorkItem {

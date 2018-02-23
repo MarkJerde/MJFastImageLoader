@@ -108,7 +108,6 @@ class ViewController: UIViewController {
 		stepButton.isEnabled = false
 		stopButton.isEnabled = false
 
-		MJFastImageLoader.shared.ignoreCacheForTest = true
 		MJFastImageLoader.shared.setCriticalProcessingConcurrencyLimit(limit: 6)
 
 		self.startTest()
@@ -358,6 +357,11 @@ class ViewController: UIViewController {
 					}
 				}
 				print("End of code. The image will continue downloading in the background and it will be loaded when it ends.")
+			}
+
+			if ( self.imageDatas.count < MJFastImageLoader.shared.maximumCachedImages * 2 ) {
+				// If we don't have enough images to kick things out of cache before we come back to them, set this flag to avoid using cache
+				MJFastImageLoader.shared.ignoreCacheForTest = true
 			}
 
 			DispatchQueue.main.sync {

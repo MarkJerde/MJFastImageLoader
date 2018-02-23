@@ -1,3 +1,1 @@
-LRU to reduce memory load?
-Methods to set / change:
-* Cache volume quota
+Complete support for cache volume quota
