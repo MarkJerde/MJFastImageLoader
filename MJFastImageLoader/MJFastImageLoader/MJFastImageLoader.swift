@@ -95,6 +95,7 @@ public class MJFastImageLoader {
 					if priority.rawValue < workItem.basePriority.rawValue {
 						workItem.basePriority = priority
 					}
+					doProcess = false
 				}
 				else if ( nil != results[uid] )
 				{
@@ -116,14 +117,15 @@ public class MJFastImageLoader {
 			}
 		}
 		if ( doProcess ) {
-			let workItem = workItems[uid]!
-			workItemQueueDispatchQueue.sync {
-				if ( nil == workItemQueues[workItem.priority] ) {
-					workItemQueues[workItem.priority] = []
+			if let workItem = workItems[uid] {
+				workItemQueueDispatchQueue.sync {
+					if ( nil == workItemQueues[workItem.priority] ) {
+						workItemQueues[workItem.priority] = []
+					}
+					workItemQueues[workItem.priority]!.append(workItem)
 				}
-				workItemQueues[workItem.priority]!.append(workItem)
+				processWorkItem()
 			}
-			processWorkItem()
 		}
 		return uid
 	}
