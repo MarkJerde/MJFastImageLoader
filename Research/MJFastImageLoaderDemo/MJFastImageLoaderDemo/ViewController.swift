@@ -210,13 +210,15 @@ class ViewController: UIViewController {
 			})
 		}
 
-		// Start auto activity in three seconds
-		self.testQueue.asyncAfter(deadline: .now() + .seconds(3), execute: {
-			// Configure for rapid rolling display of content
-			MJFastImageLoader.MJFastImageLoaderBatch.shared.batchUpdateQuantityLimit = 1
+		if ( running ) {
+			// Start auto activity in three seconds
+			self.testQueue.asyncAfter(deadline: .now() + .seconds(3), execute: {
+				// Configure for rapid rolling display of content
+				MJFastImageLoader.MJFastImageLoaderBatch.shared.batchUpdateQuantityLimit = 1
 
-			self.autoRefresh()
-		})
+				self.autoRefresh()
+			})
+		}
 	}
 
 	func autoRefresh() {
