@@ -326,7 +326,7 @@ public class MJFastImageLoader {
 
 		var priority: Int {
 			// Only add state to decrease priority if we have rendered something already
-			return basePriority.rawValue + ((nil == currentImage) ? 0 : state)
+			return basePriority.rawValue + (haveImage ? state : 0)
 		}
 
 		let data:Data
@@ -334,6 +334,7 @@ public class MJFastImageLoader {
 		var basePriority:Priority
 		var state:Int = 0
 		var currentImage:UIImage? = nil
+		var haveImage = false
 		var notification:MJFastImageLoaderNotification? = nil
 
 		public static let retainQueue = DispatchQueue(label: "MJFastImageLoader.workItemRetention")
@@ -383,6 +384,7 @@ public class MJFastImageLoader {
 					}
 
 					currentImage = result
+					haveImage = true
 					notify(notification: notification, image: result, previous: nil)
 					return result
 				}
@@ -406,6 +408,7 @@ public class MJFastImageLoader {
 				{
 					let result = UIImage(cgImage: thumbnail)
 					currentImage = result
+					haveImage = true
 					notify(notification: notification, image: result, previous: nil)
 					return result
 				}
@@ -416,11 +419,13 @@ public class MJFastImageLoader {
 				// Generate final image last.
 				state += 1
 
+				let previousImage = currentImage
+				currentImage = nil // Since we won't need this after this stage.
+
 				if let image = UIImage(data: data) {
-					if ( image.size == currentImage?.size )
+					if ( image.size == previousImage?.size )
 					{
 						// Prior call produced full-size image, so stop now.
-						currentImage = nil
 						return nil
 					}
 
@@ -428,10 +433,12 @@ public class MJFastImageLoader {
 					image.draw(at: .zero)
 					let resultImage = UIGraphicsGetImageFromCurrentImageContext()
 					UIGraphicsEndImageContext()
-					currentImage = nil
 					if let resultImage = resultImage
 					{
 						notify(notification: notification, image: resultImage, previous: nil)
+					}
+					if ( nil != resultImage ) {
+						haveImage = true
 					}
 					return resultImage
 				}
