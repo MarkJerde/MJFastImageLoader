@@ -102,7 +102,7 @@ public class MJFastImageLoader {
 					doProcess = false
 				}
 				else {
-					print("error to have no workItem or result but have hint")
+					fatalError("error to have no workItem or result but have hint")
 				}
 			}
 			else
@@ -137,12 +137,11 @@ public class MJFastImageLoader {
 			if let workItem = workItems[uid]
 			{
 				if ( !workItem.release() ) {
-
 				}
 			}
 			else if ( nil == results[uid] )
 			{
-				print("bad things not old")
+				fatalError("bad things not old")
 			}
 		}
 	}
@@ -480,6 +479,10 @@ public class MJFastImageLoader {
 			}
 		}
 		else {
+			print("execute nil \(item.uid)")
+			if ( nil == results[item.uid] ) {
+				fatalError("done without result is bad")
+			}
 			// nil result so it is done.  Remove from work items.
 			workItems.removeValue(forKey: item.uid)
 		}
