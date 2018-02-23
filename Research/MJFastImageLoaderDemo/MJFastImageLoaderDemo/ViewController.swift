@@ -290,24 +290,16 @@ class ViewController: UIViewController {
 			switch approach {
 			case 1:
 				// http://nshipster.com/image-resizing/
-				if let image = UIImage(data: data) {
-					var xformScale = CGFloat(1.0)
+				if let image = CIImage(data: data) {
 
-					DispatchQueue.main.sync {
-						let xScale = CGFloat(imgView.frame.size.width) / image.size.width
-						let yScale = CGFloat(imgView.frame.size.height) / image.size.height
-						xformScale = xScale < yScale ? xScale : yScale
-					}
+					let filter = CIFilter(name: "CILanczosScaleTransform")!
+					filter.setValue(image, forKey: "inputImage")
+					filter.setValue(0.5, forKey: "inputScale")
+					filter.setValue(1.0, forKey: "inputAspectRatio")
+					let outputImage = filter.value(forKey: "outputImage") as! CIImage
 
-					let size = image.size.applying(CGAffineTransform(scaleX: xformScale, y: xformScale))
-					let hasAlpha = false
-					let scale: CGFloat = 0.0 // Automatically use scale factor of main screen
-
-					UIGraphicsBeginImageContextWithOptions(size, !hasAlpha, scale)
-					image.draw(at: .zero)
-
-					let scaledImage = UIGraphicsGetImageFromCurrentImageContext()
-					UIGraphicsEndImageContext()
+					let context = CIContext(options: [kCIContextUseSoftwareRenderer: false])
+					let scaledImage = UIImage(cgImage: context.createCGImage(outputImage, from: outputImage.extent)!)
 
 					DispatchQueue.main.sync {
 						imgView.image = scaledImage
