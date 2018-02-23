@@ -501,8 +501,9 @@ public class MJFastImageLoader {
 	}
 
 	func executeWorkItem( item: WorkItem ) {
+		print("execute \(item.uid)")
 		if let result = item.next(thumbnailPixels: self.thumbnailPixels) {
-			print("next!")
+			print("execute good \(item.uid)")
 			results[item.uid] = result
 			processingQueue.async {
 				/*print("sleep")
@@ -542,6 +543,9 @@ public class MJFastImageLoader {
 							workItemQueues[priority]!.removeFirst(removeCount)
 							result = workItem
 							break outerLoop
+						}
+						else {
+							// fixme - remove from queue if it is not retained, otherwise they will accumulate
 						}
 					}
 				}
