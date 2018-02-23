@@ -204,7 +204,17 @@ public class MJFastImageLoader {
 	}
 
 	public func flush() {
+		print("flush")
+		// fixme - this is a bit race-prone.  Should stop outstanding work and / or prevent the actions below from being concurrent with other use of these objects.
+		// Stop the queues first
+		workItemQueues = [:]
+		// Remove all retains from each workItem so that any still in processing will be avoided.
+		workItems.values.forEach { (workItem) in
+			workItem.retainCount = 0
+		}
+		// Get rid of the work
 		workItems = [:]
+		// Clear the rest
 		results = [:]
 		hintMap = [:]
 		leastRecentlyUsed = []
@@ -480,6 +490,7 @@ public class MJFastImageLoader {
 	func processWorkItem() {
 // fixme - wrap this all in a non-concurrent GCD queue
 		if let item = nextWorkItem() {
+			print("processWorkItem is \(item.uid) retain \(item.retainCount) pri \(item.priority)")
 			if ( item.retainCount <= 0 )
 			{
 				print("skipped old")
@@ -527,7 +538,7 @@ public class MJFastImageLoader {
 		}
 		else {
 			print("execute nil \(item.uid)")
-			if ( nil == results[item.uid] ) {
+			if ( nil == results[item.uid] && item.retainCount > 0 ) {
 				fatalError("done without result is bad")
 			}
 			// nil result so it is done.  Remove from work items.
@@ -557,6 +568,8 @@ public class MJFastImageLoader {
 					}
 				}
 			}
+
+			print("nextWorkItem is \(result?.uid)")
 		}
 
 		return result
