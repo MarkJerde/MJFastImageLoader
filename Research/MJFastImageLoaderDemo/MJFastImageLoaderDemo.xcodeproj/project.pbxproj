@@ -13,6 +13,7 @@
 		8D1528B2203BE4A300843907 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8D1528B1203BE4A300843907 /* Assets.xcassets */; };
 		8D1528B5203BE4A300843907 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 8D1528B3203BE4A300843907 /* LaunchScreen.storyboard */; };
 		8D1528F2203BEA2A00843907 /* MJFastImageLoader.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8D1528EA203BE95000843907 /* MJFastImageLoader.framework */; };
+		8D152B8C203F5D9C0003F238 /* TestImages in Resources */ = {isa = PBXBuildFile; fileRef = 8D152B8B203F5D9C0003F238 /* TestImages */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -41,6 +42,8 @@
 		8D1528B4203BE4A300843907 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		8D1528B6203BE4A300843907 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		8D1528E4203BE95000843907 /* MJFastImageLoader.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = MJFastImageLoader.xcodeproj; path = ../../MJFastImageLoader/MJFastImageLoader.xcodeproj; sourceTree = "<group>"; };
+		8D152B89203F581C0003F238 /* downloadImages.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = downloadImages.sh; sourceTree = "<group>"; };
+		8D152B8B203F5D9C0003F238 /* TestImages */ = {isa = PBXFileReference; lastKnownFileType = folder; path = TestImages; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -82,6 +85,8 @@
 				8D1528B1203BE4A300843907 /* Assets.xcassets */,
 				8D1528B3203BE4A300843907 /* LaunchScreen.storyboard */,
 				8D1528B6203BE4A300843907 /* Info.plist */,
+				8D152B8B203F5D9C0003F238 /* TestImages */,
+				8D152B86203F57F50003F238 /* TestImages */,
 			);
 			path = MJFastImageLoaderDemo;
 			sourceTree = "<group>";
@@ -100,6 +105,14 @@
 				8D1528EC203BE95000843907 /* MJFastImageLoaderTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		8D152B86203F57F50003F238 /* TestImages */ = {
+			isa = PBXGroup;
+			children = (
+				8D152B89203F581C0003F238 /* downloadImages.sh */,
+			);
+			path = TestImages;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -184,6 +197,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8D152B8C203F5D9C0003F238 /* TestImages in Resources */,
 				8D1528B5203BE4A300843907 /* LaunchScreen.storyboard in Resources */,
 				8D1528B2203BE4A300843907 /* Assets.xcassets in Resources */,
 				8D1528B0203BE4A300843907 /* Main.storyboard in Resources */,

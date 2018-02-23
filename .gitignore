@@ -9,3 +9,5 @@ build/
 *.mode2v3
 xcuserdata
 xcshareddata
+Research/MJFastImageLoaderDemo/MJFastImageLoaderDemo/TestImages/[0-9]*.jpg
+Research/MJFastImageLoaderDemo/MJFastImageLoaderDemo/TestImages.disabled

@@ -320,34 +320,53 @@ class ViewController: UIViewController {
 
 	func startTest() {
 		print("Begin of code")
-		statusLabel.text = "Downloading images..."
-		if let url = URL(string: "https://picsum.photos/5000/3000/?random") {
-			imageViews.forEach({ (imgView) in
-				imgView.contentMode = .scaleAspectFit
-			})
-			testQueue.async {
-				let imageCount = 10
-				for i in 1...imageCount {
-					DispatchQueue.main.sync {
-						self.statusLabel.text = "Downloading image (\(i) of \(imageCount))..."
-					}
-					self.downloadImage(url: url)
-					while ( i > self.imageDatas.count )
-					{
-						// Normally a busy-wait would be undesirable, but for a demo to avoid smashing the source server this is good enough.
-						sleep(1)
-					}
-				}
 
-				DispatchQueue.main.sync {
-					self.statusLabel.text = "Ready"
-					self.runButton.isEnabled = true
-					self.stepButton.isEnabled = true
-					self.stopButton.isEnabled = false
+		testQueue.async {
+			let fileManager = FileManager.default
+			let enumerator2:FileManager.DirectoryEnumerator = fileManager.enumerator(atPath: Bundle.main.resourceURL!.appendingPathComponent("TestImages").path)!
+			while let element = enumerator2.nextObject() as? String {
+				if ( element.hasSuffix(".jpg") ) {
+					DispatchQueue.main.sync {
+						self.statusLabel.text = "Loading image \(self.imageDatas.count + 1)..."
+					}
+					let data = NSData(contentsOfFile: Bundle.main.resourceURL!.appendingPathComponent("TestImages").appendingPathComponent(element).path)
+					if let data = data as Data? {
+						self.imageDatas.append(data)
+					}
 				}
 			}
+
+			if ( 0 == self.imageDatas.count ) {
+				self.statusLabel.text = "Downloading images..."
+				if let url = URL(string: "https://picsum.photos/5000/3000/?random") {
+					self.imageViews.forEach({ (imgView) in
+						imgView.contentMode = .scaleAspectFit
+					})
+					self.testQueue.async {
+						let imageCount = 10
+						for i in 1...imageCount {
+							DispatchQueue.main.sync {
+								self.statusLabel.text = "Downloading image (\(i) of \(imageCount))..."
+							}
+							self.downloadImage(url: url)
+							while ( i > self.imageDatas.count )
+							{
+								// Normally a busy-wait would be undesirable, but for a demo to avoid smashing the source server this is good enough.
+								sleep(1)
+							}
+						}
+					}
+				}
+				print("End of code. The image will continue downloading in the background and it will be loaded when it ends.")
+			}
+
+			DispatchQueue.main.sync {
+				self.statusLabel.text = "Ready"
+				self.runButton.isEnabled = true
+				self.stepButton.isEnabled = true
+				self.stopButton.isEnabled = false
+			}
 		}
-		print("End of code. The image will continue downloading in the background and it will be loaded when it ends.")
 	}
 
 }
