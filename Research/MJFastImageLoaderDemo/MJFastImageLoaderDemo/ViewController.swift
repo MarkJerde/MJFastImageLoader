@@ -79,7 +79,9 @@ class ViewController: UIViewController {
 	@IBOutlet weak var stepButton: UIButton!
 
 	var running = false
+	var failed = false
 	var enabled = true
+	var runTooFastToKeepUp = false
 	var imageDatas:[Data] = []
 	var imageDatasInUse:[Data?] = [nil,nil,nil,nil,nil,nil]
 	var imageUpdaters:[UIImageUpdater?] = [nil,nil,nil,nil,nil,nil]
@@ -177,8 +179,12 @@ class ViewController: UIViewController {
 		step()
 	}
 
-	@IBAction func switchAction(_ sender: UISwitch) {
+	@IBAction func enableAction(_ sender: UISwitch) {
 		enabled = sender.isOn
+	}
+
+	@IBAction func tooFastAction(_ sender: UISwitch) {
+		runTooFastToKeepUp = sender.isOn
 	}
 
 	@IBAction func changeThumbPx(_ sender: UITextField) {
@@ -187,9 +193,22 @@ class ViewController: UIViewController {
 		}
 	}
 
+	var disabledModeApproach = 0
+	@IBAction func changeDisabledApproach(_ sender: UITextField) {
+		if let value = sender.text {
+			disabledModeApproach = Int(value)!
+		}
+	}
+
 	// MARK: Test Execution
 
 	func step() {
+		// Clear data
+		imagesSet = 0
+		cacheHits = 0
+		MJFastImageLoader.wasteCount = 0
+		failed = false
+
 		// Clear the cache
 		MJFastImageLoader.shared.flush()
 
@@ -221,12 +240,24 @@ class ViewController: UIViewController {
 		}
 	}
 
+	func setStatus( force:Bool ) {
+		DispatchQueue.main.async {
+			if ( force || 0 == self.imagesSet % 6 )
+			{
+				if ( self.failed ) {
+					self.statusLabel.text = "Failed with Set \(self.imagesSet) Hit \(self.cacheHits) Waste \(MJFastImageLoader.wasteCount)"
+				}
+				else {
+					self.statusLabel.text = "Set \(self.imagesSet) Hit \(self.cacheHits) Waste \(MJFastImageLoader.wasteCount)"
+				}
+			}
+		}
+	}
+
+	var nextViewIndex = 0
 	func autoRefresh() {
 		DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1), execute: {
-			if ( 0 == self.imagesSet % 6 )
-			{
-				self.statusLabel.text = "Set \(self.imagesSet) Hit \(self.cacheHits) Waste \(MJFastImageLoader.wasteCount)"
-			}
+			self.setStatus( force: false )
 		})
 
 		if ( running ) {
@@ -234,24 +265,76 @@ class ViewController: UIViewController {
 			let random = false
 			let randomImageView = random
 				? imageViews.shuffled().first!
-				: imageViews[imageDataIndex % imageViews.count]
+				: imageViews[nextViewIndex % imageViews.count]
+			nextViewIndex += 1
 
-			// Blank it out
-			DispatchQueue.main.sync {
-				randomImageView.image = nil
-				randomImageView.backgroundColor = UIColor.orange
-			}
+			NSLog("Update \(randomImageView.accessibilityHint)")
 
-			// Put a new image in
-			setNewImage(imgView: randomImageView)
-
-			// Do another one in 100ms
+			// Do another one in 100ms, even if we haven't finished this one
 			testQueue.asyncAfter(deadline: .now() + .milliseconds(100), execute: {
 				// Not infinite recursion, due to GCD.  Thank goodness.
 				self.autoRefresh()
 			})
+
+			// Blank it out
+			doFastSlowMainQueue(item: DispatchWorkItem {
+				DispatchQueue.main.sync {
+					if ( self.runTooFastToKeepUp && nil == randomImageView.image ) {
+						// If we caught our own tail, just stop.
+						self.running = false
+						self.failed = true
+						self.stopAction(self)
+						self.setStatus( force: true )
+						return
+					}
+					randomImageView.image = nil
+					randomImageView.backgroundColor = UIColor.orange
+				}
+				NSLog("Update blank  \(randomImageView.accessibilityHint)")
+			}, fast: true)
+
+			// Put a new image in
+			doFastSlowMainQueue(item: DispatchWorkItem {
+				self.setNewImage(imgView: randomImageView)
+				NSLog("Update done  \(randomImageView.accessibilityHint)")
+			}, fast: false)
 		}
 	}
+
+	// fastSlowMainQueue is a mechanism to prioritize quick operations in bursts between slow operations.
+	var mainQueueFastItems:[DispatchWorkItem] = []
+	var mainQueueSlowItems:[DispatchWorkItem] = []
+	let fastSlowMainListQueue = DispatchQueue(label: "MJFastImageLoaderDemo.fastSlowMainListQueue")
+	let fastSlowMainExecQueue = DispatchQueue(label: "MJFastImageLoaderDemo.fastSlowMainExecQueue")
+	func doFastSlowMainQueue( item: DispatchWorkItem, fast: Bool ) {
+		if ( !runTooFastToKeepUp ) {
+			item.perform()
+			return
+		}
+		fastSlowMainListQueue.async {
+			if ( fast ) {
+				self.mainQueueFastItems.append(item)
+			}
+			else {
+				self.mainQueueSlowItems.append(item)
+			}
+		}
+		fastSlowMainExecQueue.async {
+			var item:DispatchWorkItem? = nil
+			self.fastSlowMainListQueue.sync {
+				if let workItem = self.mainQueueFastItems.first {
+					item = workItem
+					self.mainQueueFastItems.remove(at: 0)
+				}
+				else if let workItem = self.mainQueueSlowItems.first {
+					item = workItem
+					self.mainQueueSlowItems.remove(at: 0)
+				}
+			}
+			item?.perform()
+		}
+	}
+
 
 	var imagesSet = 0
 	var cacheHits = 0
@@ -286,15 +369,57 @@ class ViewController: UIViewController {
 		}
 		else
 		{
-			var approach = 1
-			switch approach {
+			switch disabledModeApproach {
 			case 1:
+				// http://nshipster.com/image-resizing/
+				if let image = CIImage(data: data) {
+
+					let filter = CIFilter(name: "CILanczosScaleTransform")!
+					filter.setValue(image, forKey: "inputImage")
+					filter.setValue(0.5, forKey: "inputScale")
+					filter.setValue(1.0, forKey: "inputAspectRatio")
+					let outputImage = filter.value(forKey: "outputImage") as! CIImage
+
+					let context = CIContext(options: [kCIContextUseSoftwareRenderer: false])
+					let scaledImage = UIImage(cgImage: context.createCGImage(outputImage, from: outputImage.extent)!)
+
+					DispatchQueue.main.sync {
+						imgView.image = scaledImage
+					}
+				}
+				break
+				
+			case 2:
 				// http://nshipster.com/image-resizing/
 				if let image = CGImageSourceCreateWithData(data as CFData, nil) {
 
 					var maxy:CGFloat = 1.0
 					DispatchQueue.main.sync {
-						maxy = max( imgView.frame.size.width, imgView.frame.size.height)
+						// Mutiply by four for super-retina, I think.
+						maxy = max( imgView.frame.size.width * 4, imgView.frame.size.height * 4)
+					}
+
+					let options: [NSString: NSObject] = [
+						kCGImageSourceThumbnailMaxPixelSize: maxy as NSNumber,
+						kCGImageSourceCreateThumbnailFromImageAlways: true as NSNumber
+					]
+
+					let scaledImage = CGImageSourceCreateThumbnailAtIndex(image, 0, options as CFDictionary).flatMap { UIImage(cgImage: $0) }
+
+
+					DispatchQueue.main.sync {
+						imgView.image = scaledImage
+					}
+				}
+				break
+
+			case 3:
+				// http://nshipster.com/image-resizing/
+				if let image = CGImageSourceCreateWithData(data as CFData, nil) {
+
+					var maxy:CGFloat = 1.0
+					DispatchQueue.main.sync {
+						maxy = max( imgView.frame.size.width * 4, imgView.frame.size.height * 4)
 					}
 
 					let options: [NSString: NSObject] = [
