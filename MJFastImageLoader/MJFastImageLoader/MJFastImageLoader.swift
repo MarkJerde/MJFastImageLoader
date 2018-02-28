@@ -97,7 +97,13 @@ public class MJFastImageLoader {
 					if priority.rawValue < workItem.basePriority.rawValue {
 						workItem.basePriority = priority
 					}
-					doProcess = false
+
+					if ( workItem.isCancelled ) {
+						workItem.isCancelled = false
+					}
+					else {
+						doProcess = false
+					}
 				}
 				else if ( nil != results[uid] )
 				{
@@ -342,6 +348,7 @@ public class MJFastImageLoader {
 		let data:Data
 		let uid:Int
 		var basePriority:Priority
+		var isCancelled = false
 		var state:Int = 0
 		var currentImage:UIImage? = nil
 		var haveImage = false
@@ -563,7 +570,10 @@ public class MJFastImageLoader {
 							break outerLoop
 						}
 						else {
-							// fixme - remove from queue if it is not retained, otherwise they will accumulate
+							// Remove from queue if it is not retained, so they will not accumulate
+							workItem.isCancelled = true
+							workItemQueues[priority]!.remove(at: removeCount - 1)
+							removeCount -= 1
 						}
 					}
 				}
