@@ -32,7 +32,7 @@ open class MJFastImageLoaderBatch {
 	public static let shared = MJFastImageLoaderBatch()
 
 	open var batchUpdateQuantityLimit = 1
-	public var batchUpdateTimeLimit = 0.1
+	public var batchUpdateTimeLimit = 0.2
 
 	private var notifications:[MJFastImageLoaderNotification] = []
 	private var images:[UIImage] = []
