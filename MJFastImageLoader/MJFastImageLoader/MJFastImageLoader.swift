@@ -134,6 +134,9 @@ public class MJFastImageLoader {
 						if ( true ) {
 							let lru = leastRecentlyUsed[i]
 							let index = hintMap[lru]!
+							if let image = results[index] {
+								maxResultsVolumeBytes -= image.cgImage!.height * image.cgImage!.bytesPerRow
+							}
 							results[index] = nil
 							workItems.removeValue(forKey: index)
 							hintMap[lru] = nil
@@ -222,6 +225,7 @@ public class MJFastImageLoader {
 		workItems = [:]
 		// Clear the rest
 		results = [:]
+		maxResultsVolumeBytes = 0
 		hintMap = [:]
 		leastRecentlyUsed = []
 	}
@@ -330,6 +334,7 @@ public class MJFastImageLoader {
 	var nextUID:Int = 0
 	var workItems:[Int:WorkItem] = [:]
 	var results:[Int:UIImage] = [:]
+	var maxResultsVolumeBytes = 0
 	var leastRecentlyUsed:[Data] = []
 	var hintMap:[Data:Int] = [:]
 
@@ -529,7 +534,13 @@ public class MJFastImageLoader {
 		print("execute \(item.uid)")
 		if let result = item.next(thumbnailPixels: self.thumbnailPixels) {
 			print("execute good \(item.uid)")
+			if let image = results[item.uid] {
+				maxResultsVolumeBytes -= image.cgImage!.height * image.cgImage!.bytesPerRow
+			}
 			results[item.uid] = result
+			if let image = results[item.uid] {
+				maxResultsVolumeBytes += image.cgImage!.height * image.cgImage!.bytesPerRow
+			}
 			processingQueue.async {
 				/*print("sleep")
 				sleep(10)
