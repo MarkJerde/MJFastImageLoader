@@ -160,6 +160,17 @@ public class MJFastImageLoader {
 						workItemQueues[workItem.priority] = []
 					}
 					workItemQueues[workItem.priority]!.append(workItem)
+
+					if let queue = workItemQueues[1] {
+						let haveCritical = queue.count > 0
+						if ( haveCritical && workItemQueuesHasNoCritical ) {
+							workItemQueuesHasNoCritical = false
+							// Nobody else should be holding this
+							NSLog("Taking noncriticalProcessingAllowedSemaphore")
+							noncriticalProcessingAllowedSemaphore.wait()
+							NSLog("Took noncriticalProcessingAllowedSemaphore")
+						}
+					}
 				}
 				processWorkItem()
 			}
@@ -255,11 +266,19 @@ public class MJFastImageLoader {
 			}
 			if ( item.priority > 1 ) {
 				processingQueue.async {
+					// Check if we can get the semaphore before starting work, but don't hold it.
+					NSLog("Checking noncriticalProcessingAllowedSemaphore")
+					self.noncriticalProcessingAllowedSemaphore.wait()
+					self.noncriticalProcessingAllowedSemaphore.signal()
+					NSLog("Checked noncriticalProcessingAllowedSemaphore")
 					self.executeWorkItem(item: item)
 				}
 			}
 			else {
 				criticalProcessingDispatchQueue.async {
+					self.workItemQueueDispatchQueue.sync {
+						self.criticalProcessingActiveCount += 1
+					}
 					self.dispatchCriticalWorkItem(workItem: item)
 				}
 			}
@@ -269,8 +288,25 @@ public class MJFastImageLoader {
 	func dispatchCriticalWorkItem( workItem: WorkItem ) {
 		// Since the criticalProcessingWorkQueue is concurrent, limit the concurrent volume here.
 		criticalProcessingDispatchQueueSemaphore.wait()
+
 		criticalProcessingWorkQueue.async {
 			self.executeWorkItem(item: workItem)
+
+			self.workItemQueueDispatchQueue.sync {
+				self.criticalProcessingActiveCount -= 1
+
+				if ( 0 == self.criticalProcessingActiveCount ) {
+					if let queue = self.workItemQueues[1] {
+						let haveCritical = queue.count > 0
+						if ( !haveCritical && !self.workItemQueuesHasNoCritical ) {
+							self.workItemQueuesHasNoCritical = true
+							self.noncriticalProcessingAllowedSemaphore.signal()
+							NSLog("Gave noncriticalProcessingAllowedSemaphore")
+						}
+					}
+				}
+			}
+
 			self.criticalProcessingDispatchQueueSemaphore.signal()
 		}
 	}
@@ -342,10 +378,13 @@ public class MJFastImageLoader {
 	}
 
 	private let criticalProcessingDispatchQueueSemaphore = DispatchSemaphore(value: 0)
+	private let noncriticalProcessingAllowedSemaphore = DispatchSemaphore(value: 1)
 	let criticalProcessingDispatchQueue = DispatchQueue(label: "MJFastImageLoader.criticalProcessingDispatchQueue")
+	var criticalProcessingActiveCount = 0
 	let criticalProcessingWorkQueue = DispatchQueue(label: "MJFastImageLoader.criticalProcessingQueue", qos: .userInitiated, attributes: .concurrent)
 	let processingQueue = DispatchQueue(label: "MJFastImageLoader.processingQueue")
 	var workItemQueues:[Int:[WorkItem]] = [:]
+	var workItemQueuesHasNoCritical = true
 	let workItemQueueDispatchQueue = DispatchQueue(label: "MJFastImageLoader.workItemQueueDispatchQueue")
 
 }
