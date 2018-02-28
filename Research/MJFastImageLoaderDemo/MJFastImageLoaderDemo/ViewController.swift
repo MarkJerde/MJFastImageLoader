@@ -110,7 +110,7 @@ class ViewController: UIViewController {
 		stepButton.isEnabled = false
 		stopButton.isEnabled = false
 
-		MJFastImageLoader.shared.setCriticalProcessingConcurrencyLimit(limit: 6)
+		MJFastImageLoader.shared.setCriticalProcessingConcurrencyLimit(limit: ProcessInfo.processInfo.activeProcessorCount)
 
 		self.startTest()
 	}
