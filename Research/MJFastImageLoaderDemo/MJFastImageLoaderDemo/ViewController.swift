@@ -130,10 +130,10 @@ class ViewController: UIViewController {
 		// Dispose of any resources that can be recreated.
 	}
 
-	public class UIImageUpdater : MJFastImageLoader.MJFastImageLoaderNotification {
+	public class UIImageUpdater : MJFastImageLoaderNotification {
 		let imageView:UIImageView
 
-		init(imageView: UIImageView, batch: MJFastImageLoader.MJFastImageLoaderBatch?) {
+		init(imageView: UIImageView, batch: MJFastImageLoaderBatch?) {
 			self.imageView = imageView
 			super.init(batch: batch)
 		}
@@ -214,7 +214,7 @@ class ViewController: UIViewController {
 		MJFastImageLoader.shared.flush()
 
 		// Configure for simultaneous burst display of content
-		MJFastImageLoader.MJFastImageLoaderBatch.shared.batchUpdateQuantityLimit = 6
+		MJFastImageLoaderBatch.shared.batchUpdateQuantityLimit = 6
 		
 		// Blank out all images
 		imageViews.forEach({ (imageView) in
@@ -234,7 +234,7 @@ class ViewController: UIViewController {
 			// Start auto activity in three seconds
 			self.testQueue.asyncAfter(deadline: .now() + .seconds(3), execute: {
 				// Configure for rapid rolling display of content
-				MJFastImageLoader.MJFastImageLoaderBatch.shared.batchUpdateQuantityLimit = 1
+				MJFastImageLoaderBatch.shared.batchUpdateQuantityLimit = 1
 
 				self.autoRefresh()
 			})
@@ -367,7 +367,7 @@ class ViewController: UIViewController {
 			_ = MJFastImageLoader.shared.enqueue(image: data, priority: .critical)
 			DispatchQueue.main.sync {
 				print("do set image \(imageIndex) from index \(imageDatas.index(of: data))")
-				let updater = UIImageUpdater(imageView: imgView, batch: MJFastImageLoader.MJFastImageLoaderBatch.shared)
+				let updater = UIImageUpdater(imageView: imgView, batch: MJFastImageLoaderBatch.shared)
 				imageDatasInUse[imageIndex] = data
 				imageUpdaters[imageIndex] = updater
 				imgView.image = MJFastImageLoader.shared.image(image: data, notification: updater)
