@@ -80,6 +80,7 @@ class ViewController: UIViewController {
 
 	var running = false
 	var failed = false
+	var failStatusLock = false
 	var enabled = true
 	var runTooFastToKeepUp = false
 	var imageDatas:[Data] = []
@@ -241,15 +242,25 @@ class ViewController: UIViewController {
 	}
 
 	func setStatus( force:Bool ) {
-		DispatchQueue.main.async {
-			if ( force || 0 == self.imagesSet % 6 )
-			{
-				if ( self.failed ) {
-					self.statusLabel.text = "Failed with Set \(self.imagesSet) Hit \(self.cacheHits) Waste \(MJFastImageLoader.wasteCount)"
+		var status:String? = nil
+
+		if ( force || 0 == self.imagesSet % 6 )
+		{
+			if ( failed ) {
+				if ( !failStatusLock ) {
+					status = "Failed with Set \(imagesSet) Hit \(cacheHits) Waste \(MJFastImageLoader.wasteCount)"
+					failStatusLock = true
 				}
-				else {
-					self.statusLabel.text = "Set \(self.imagesSet) Hit \(self.cacheHits) Waste \(MJFastImageLoader.wasteCount)"
-				}
+			}
+			else {
+				status = "Set \(imagesSet) Hit \(cacheHits) Waste \(MJFastImageLoader.wasteCount)"
+				failStatusLock = false
+			}
+		}
+
+		if let status = status {
+			DispatchQueue.main.async {
+				self.statusLabel.text = status
 			}
 		}
 	}
