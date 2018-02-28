@@ -306,6 +306,8 @@ public class MJFastImageLoader {
 						self.timeLimitWorkItem?.cancel()
 						self.timeLimitWorkItem = nil
 
+						NSLog("notify \(self.notifications.count) for \(hitQuota ? "quota" : "timeout")")
+
 						// Do our work
 						DispatchQueue.main.sync {
 							// Use the main queue so that batches will draw as one.  Yes, this matters.
@@ -531,9 +533,9 @@ public class MJFastImageLoader {
 	}
 
 	func executeWorkItem( item: WorkItem ) {
-		print("execute \(item.uid)")
+		NSLog("execute \(item.uid) at \(item.state)")
 		if let result = item.next(thumbnailPixels: self.thumbnailPixels) {
-			print("execute good \(item.uid)")
+			NSLog("execute good \(item.uid)")
 			if let image = results[item.uid] {
 				maxResultsVolumeBytes -= image.cgImage!.height * image.cgImage!.bytesPerRow
 			}
@@ -555,7 +557,7 @@ public class MJFastImageLoader {
 			}
 		}
 		else {
-			print("execute nil \(item.uid)")
+			NSLog("execute nil \(item.uid)")
 			if ( nil == results[item.uid] && item.retainCount > 0 ) {
 				fatalError("done without result is bad")
 			}
