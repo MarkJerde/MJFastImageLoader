@@ -82,14 +82,13 @@ public class MJFastImageLoader {
 
 	// MARK: Public Methods - Interaction
 
-	public func enqueue(image: Data, priority: Priority) -> Int {
-		var uid = -1
-		var doProcess = true
+	public func enqueue(image: Data, priority: Priority) {
+		let identity = DataIdentity(data: image)
 		intakeQueue.sync {
-			if nil != (ignoreCacheForTest ? nil : hintMap.index(forKey: image))
+			if nil != (ignoreCacheForTest ? nil : items.index(forKey: identity))
 			{
-				uid = hintMap[image]!
-				if let workItem = workItems[uid]
+				let item = items[identity]
+				if let workItem = item?.workItem
 				{
 					workItem.retain()
 
@@ -100,15 +99,12 @@ public class MJFastImageLoader {
 
 					if ( workItem.isCancelled ) {
 						workItem.isCancelled = false
-					}
-					else {
-						doProcess = false
+						enqueueWork(item: item!)
 					}
 				}
-				else if ( results[uid]?.count ?? 0 > 0 )
+				else if ( item?.results.count ?? 0 > 0 )
 				{
 					// We have results but no work item, so we must be fully formed
-					doProcess = false
 				}
 				else {
 					fatalError("error to have no workItem or result but have hint")
@@ -116,40 +112,41 @@ public class MJFastImageLoader {
 			}
 			else
 			{
-				uid = nextUID
+				let uid = nextUID
 				nextUID += 1
-				hintMap[image] = uid
 
 				let workItem = WorkItem(data: image, uid: uid, basePriority: priority)
-				workItems[uid] = workItem
-				leastRecentlyUsed.append(image)
+				let item = Item(workItem: workItem)
+				items[identity] = item
+				leastRecentlyUsed.append(identity)
+				enqueueWork(item: item)
 
 				checkQuotas()
 			}
 		}
-		if ( doProcess ) {
-			if let workItem = workItems[uid] {
-				workItemQueueDispatchQueue.sync {
-					if ( nil == workItemQueues[workItem.priority] ) {
-						workItemQueues[workItem.priority] = []
-					}
-					workItemQueues[workItem.priority]!.append(workItem)
+	}
 
-					if let queue = workItemQueues[1] {
-						let haveCritical = queue.count > 0
-						if ( haveCritical && workItemQueuesHasNoCritical ) {
-							workItemQueuesHasNoCritical = false
-							// Nobody else should be holding this
-							NSLog("Taking noncriticalProcessingAllowedSemaphore")
-							noncriticalProcessingAllowedSemaphore.wait()
-							NSLog("Took noncriticalProcessingAllowedSemaphore")
-						}
+	func enqueueWork(item: Item) {
+		if let workItem = item.workItem {
+			workItemQueueDispatchQueue.sync {
+				if ( nil == workItemQueues[workItem.priority] ) {
+					workItemQueues[workItem.priority] = []
+				}
+				workItemQueues[workItem.priority]!.append(item)
+
+				if let queue = workItemQueues[1] {
+					let haveCritical = queue.count > 0
+					if ( haveCritical && workItemQueuesHasNoCritical ) {
+						workItemQueuesHasNoCritical = false
+						// Nobody else should be holding this
+						NSLog("Taking noncriticalProcessingAllowedSemaphore")
+						noncriticalProcessingAllowedSemaphore.wait()
+						NSLog("Took noncriticalProcessingAllowedSemaphore")
 					}
 				}
-				processWorkItem()
 			}
+			processWorkItem()
 		}
-		return uid
 	}
 
 	func checkQuotas() {
@@ -176,52 +173,51 @@ public class MJFastImageLoader {
 		var count = leastRecentlyUsed.count
 		while ( i < count ) {
 			let lru = leastRecentlyUsed[i]
-			let index = hintMap[lru]!
-			let noLongerNeeded = workItems[index]?.isCancelled ?? true
-			let noLongerRunning = workItems[index]?.final ?? true
+			if let item = items[lru] {
+			let noLongerNeeded = items[lru]?.workItem?.isCancelled ?? true
+			let noLongerRunning = items[lru]?.workItem?.final ?? true
 			if ( force || noLongerNeeded ) {
 				// Remove the largest version of each image, or all versions if we are over count.
-				if let sizes = results[index] {
-					allImages: while let max = sizes.keys.max() {
-						if let image = sizes[max] {
-							let bytesThis = image.cgImage!.height * image.cgImage!.bytesPerRow
-							NSLog("ARC want to deinit \(Unmanaged.passUnretained(image).toOpaque()) \(noLongerNeeded) \(noLongerRunning) for \(bytesThis)")
-							maxResultsVolumeBytes -= bytesThis
-							removedSomething = true
-						}
-						results[index]![max] = nil
-						if ( leastRecentlyUsed.count <= maximumCachedImages ) {
-							break allImages
-						}
+				let sizes = item.results
+				allImages: while let max = sizes.keys.max() {
+					if let image = sizes[max] {
+						let bytesThis = image.cgImage!.height * image.cgImage!.bytesPerRow
+						NSLog("ARC want to deinit \(Unmanaged.passUnretained(image).toOpaque()) \(noLongerNeeded) \(noLongerRunning) for \(bytesThis)")
+						maxResultsVolumeBytes -= bytesThis
+						removedSomething = true
 					}
+					item.results[max] = nil
+					if ( leastRecentlyUsed.count <= maximumCachedImages ) {
+						break allImages
+					}
+				}
 
-					// If there are no more versions, remove empty dictionary from results.
-					if ( results[index]!.count == 0 ) {
-						if ( !noLongerNeeded ) {
-							workItems[index]?.isForcedOut = true
-						}
-						results[index] = nil
-					}
+				// If there are no more versions, indicate forced out.
+				if ( item.results.count == 0 && !noLongerNeeded ) {
+					// fixme - This is just preventative, in case WorkItem doesn't deinit right away.  Make sure it does deinit right away and then remove this
+					item.workItem?.isForcedOut = true
 				}
 
 				// Don't work on it any more, since we have removed at least its largest product
-				if ( nil != workItems[index]?.currentImage ) {
-					workItems[index]?.currentImage = nil
+				if ( nil != item.workItem?.currentImage ) {
+					// fixme - This is just preventative, in case WorkItem doesn't deinit right away.  Make sure it does deinit right away and then remove this
+					item.workItem?.currentImage = nil
 				}
-				workItems.removeValue(forKey: index)
+				item.workItem = nil
 
-				// If we removed it completely, remove it from hints, LRU, and count
-				if ( results[index]?.count ?? 0 == 0 ) {
-					hintMap[lru] = nil
+				// If we removed it completely, remove it from items, LRU, and count
+				if ( item.results.count == 0 ) {
+					items[lru] = nil
 					leastRecentlyUsed.remove(at: i)
 					i -= 1
 					count -= 1
 					removedSomething = true
 				}
 
-				if ( hintMap.count <= maximumCachedImages
+				if ( items.count <= maximumCachedImages
 					&& maxResultsVolumeBytes <= maximumCachedBytes ) {
 					break
+				}
 				}
 			}
 
@@ -240,25 +236,22 @@ public class MJFastImageLoader {
 	}
 
 	public func cancel(image: Data) {
-		if let index = hintMap.index(forKey: image)
-		{
-			var uid = -1
-			uid = hintMap[index].value
-			uid = hintMap[image]!
-			NSLog("cancel \(uid)")
-			if let workItem = workItems[uid]
+		let identity = DataIdentity(data: image)
+		if let item = items[identity] {
+			if let workItem = item.workItem
 			{
+				NSLog("cancel \(workItem.uid)")
 				if ( !workItem.release() ) {
 					workItem.isCancelled = true
-					workItems[uid] = nil
-					if let index = workItemQueues[workItem.priority]?.index(of: workItem) {
+					item.workItem = nil
+					if let index = workItemQueues[workItem.priority]?.index(of: item) {
 						workItemQueues[workItem.priority]!.remove(at: index)
 					}
 					else {
 						NSLog("brute removal of \(workItem.uid) from workItemQueues")
 						var removed = false
 						workItemQueues.keys.forEach({ (priority) in
-							if let index = workItemQueues[priority]?.index(of: workItem) {
+							if let index = workItemQueues[priority]?.index(of: item) {
 								workItemQueues[priority]!.remove(at: index)
 								removed = true
 							}
@@ -269,7 +262,7 @@ public class MJFastImageLoader {
 					}
 				}
 			}
-			else if ( results[uid]?.count ?? 0 == 0 )
+			else if ( item.results.count == 0 )
 			{
 				fatalError("Cancelled before processing anything")
 			}
@@ -278,30 +271,29 @@ public class MJFastImageLoader {
 
 	public func image(image: Data, notification: MJFastImageLoaderNotification?) -> UIImage? {
 		print("lookup")
-		if let uid = hintMap[image] {
+		let identity = DataIdentity(data: image)
+		if let item = items[identity] {
 			// Register notification if there is an active work item and we have a notification.
-			print("register \(uid)")
-			if let workItem = workItems[uid] {
+			if let workItem = item.workItem {
+				print("register \(workItem.uid)")
 				if let notification = notification {
 					// Insert ourselves at the front.
 					notification.next = workItem.notification
 					workItem.notification = notification
 					workItem.retain() // For the notification
 					notification.workItem = workItem
-					print("registered \(uid)")
 				}
+				print("registered \(workItem.uid)")
 			}
 
 			// Move to back of LRU since someone asked for it
-			if leastRecentlyUsed.contains(image) {
-				leastRecentlyUsed.remove(at: leastRecentlyUsed.index(of: image)!)
+			if let index = leastRecentlyUsed.index(of: identity) {
+				leastRecentlyUsed.remove(at: index)
 			}
-			leastRecentlyUsed.append(image)
+			leastRecentlyUsed.append(identity)
 
-			if let sizes = results[uid] {
-				if let max = sizes.keys.max() {
-					return sizes[max]
-				}
+			if let max = item.results.keys.max() {
+				return item.results[max]
 			}
 			return nil
 		}
@@ -314,15 +306,13 @@ public class MJFastImageLoader {
 		// Stop the queues first
 		workItemQueues = [:]
 		// Remove all retains from each workItem so that any still in processing will be avoided.
-		workItems.values.forEach { (workItem) in
-			workItem.retainCount = 0
+		items.values.forEach { (item) in
+			item.workItem?.retainCount = 0
 		}
 		// Get rid of the work
-		workItems = [:]
+		items = [:]
 		// Clear the rest
-		results = [:]
 		maxResultsVolumeBytes = 0
-		hintMap = [:]
 		leastRecentlyUsed = []
 	}
 
@@ -334,48 +324,83 @@ public class MJFastImageLoader {
 
 	let intakeQueue = DispatchQueue(label: "MJFastImageLoader.intakeQueue")
 	var nextUID:Int = 0
-	var workItems:[Int:WorkItem] = [:]
-	var leastRecentlyUsed:[Data] = []
-	var hintMap:[Data:Int] = [:]
-	var results:[Int:[CGFloat:UIImage]] = [:]
+	var items:[DataIdentity:Item] = [:]
+	var leastRecentlyUsed:[DataIdentity] = []
 	var maxResultsVolumeBytes = 0
+
+	class DataIdentity : Equatable, Hashable {
+		// A simple mechanism to store a representation of a large object in a small space.
+		// Uses the hash value of the original object, which has a risk of collision so it
+		// stores a secondary hash of a subset of the original content providing 1-in-n-squared
+		// probability of a incorrect equality.
+		var hashValue: Int
+		var partialHash: Int
+
+		init(data: Data) {
+			hashValue = data.hashValue
+			let short = data.count < 1000
+			let partialStart = short ? 1 : (data.count / 10 * 5)
+			let partialEnd = short ? data.count : (data.count / 10 * 6)
+			partialHash = data.subdata(in: Range<Data.Index>(partialStart...partialEnd)).hashValue
+		}
+
+		static func ==(lhs: MJFastImageLoader.DataIdentity, rhs: MJFastImageLoader.DataIdentity) -> Bool {
+			return lhs.hashValue == rhs.hashValue && lhs.partialHash == rhs.partialHash
+		}
+	}
+
+	class Item : Equatable {
+		var workItem:WorkItem? = nil
+		var results:[CGFloat:UIImage] = [:]
+
+		init(workItem: WorkItem) {
+			self.workItem = workItem
+		}
+
+		static func ==(lhs: MJFastImageLoader.Item, rhs: MJFastImageLoader.Item) -> Bool {
+			return lhs === rhs
+		}
+	}
 
 	func processWorkItem() {
 // fixme - wrap this all in a non-concurrent GCD queue
 		if let item = nextWorkItem() {
-			print("processWorkItem is \(item.uid) retain \(item.retainCount) pri \(item.priority)")
-			if ( item.retainCount <= 0 )
-			{
-				print("skipped old")
-				return
-			}
-			if ( item.priority > 1 ) {
-				processingQueue.async {
-					// Check if we can get the semaphore before starting work, but don't hold it.
-					NSLog("Checking noncriticalProcessingAllowedSemaphore")
-					self.noncriticalProcessingAllowedSemaphore.wait()
-					self.noncriticalProcessingAllowedSemaphore.signal()
-					NSLog("Checked noncriticalProcessingAllowedSemaphore")
-					self.executeWorkItem(item: item)
+			if let workItem = item.workItem {
+				print("processWorkItem is \(workItem.uid) retain \(workItem.retainCount) pri \(workItem.priority)")
+				if ( workItem.retainCount <= 0 )
+				{
+					print("skipped old")
+					fatalError("shouldn't be able to get to skipped old")
+					return
 				}
-			}
-			else {
-				criticalProcessingDispatchQueue.async {
-					self.workItemQueueDispatchQueue.sync {
-						self.criticalProcessingActiveCount += 1
+				if ( workItem.priority > 1 ) {
+					processingQueue.async {
+						// Check if we can get the semaphore before starting work, but don't hold it.
+						NSLog("Checking noncriticalProcessingAllowedSemaphore")
+						self.noncriticalProcessingAllowedSemaphore.wait()
+						self.noncriticalProcessingAllowedSemaphore.signal()
+						NSLog("Checked noncriticalProcessingAllowedSemaphore")
+						self.executeWorkItem(item: item)
 					}
-					self.dispatchCriticalWorkItem(workItem: item)
+				}
+				else {
+					criticalProcessingDispatchQueue.async {
+						self.workItemQueueDispatchQueue.sync {
+							self.criticalProcessingActiveCount += 1
+						}
+						self.dispatchCriticalWorkItem(item: item)
+					}
 				}
 			}
 		}
 	}
 
-	func dispatchCriticalWorkItem( workItem: WorkItem ) {
+	func dispatchCriticalWorkItem( item: Item ) {
 		// Since the criticalProcessingWorkQueue is concurrent, limit the concurrent volume here.
 		criticalProcessingDispatchQueueSemaphore.wait()
 
 		criticalProcessingWorkQueue.async {
-			self.executeWorkItem(item: workItem)
+			self.executeWorkItem(item: item)
 
 			self.workItemQueueDispatchQueue.sync {
 				self.criticalProcessingActiveCount -= 1
@@ -396,46 +421,45 @@ public class MJFastImageLoader {
 		}
 	}
 
-	func executeWorkItem( item: WorkItem ) {
-		NSLog("execute \(item.uid) at \(item.state)")
-		if let result = item.next(thumbnailPixels: self.thumbnailPixels) {
-			NSLog("execute good \(item.uid)")
-			if ( nil == results[item.uid] ) {
-				results[item.uid] = [:]
-			}
-			results[item.uid]![result.size.height] = result
-			maxResultsVolumeBytes += result.cgImage!.height * result.cgImage!.bytesPerRow
-			checkQuotas()
-			processingQueue.async {
-				/*print("sleep")
-				sleep(10)
-				print("slept")*/
-				self.workItemQueueDispatchQueue.sync {
-					if ( nil == self.workItemQueues[item.priority] ) {
-						self.workItemQueues[item.priority] = []
+	func executeWorkItem( item: Item ) {
+		if let workItem = item.workItem {
+			NSLog("execute \(workItem.uid) at \(workItem.state)")
+			if let result = workItem.next(thumbnailPixels: self.thumbnailPixels) {
+				NSLog("execute good \(workItem.uid)")
+				item.results[result.size.height] = result
+				maxResultsVolumeBytes += result.cgImage!.height * result.cgImage!.bytesPerRow
+				checkQuotas()
+				processingQueue.async {
+					/*print("sleep")
+					sleep(10)
+					print("slept")*/
+					self.workItemQueueDispatchQueue.sync {
+						if ( nil == self.workItemQueues[workItem.priority] ) {
+							self.workItemQueues[workItem.priority] = []
+						}
+						self.workItemQueues[workItem.priority]?.append(item) // To process next level of image
 					}
-					self.workItemQueues[item.priority]?.append(item) // To process next level of image
-				}
-				self.processWorkItem()
-			}
-		}
-		else {
-			NSLog("execute nil \(item.uid)")
-			if ( results[item.uid]?.count ?? 0 == 0 && item.retainCount > 0 ) {
-				if ( item.isForcedOut ) {
-					print("was forced out")
-				}
-				else {
-					fatalError("done without result is bad")
+					self.processWorkItem()
 				}
 			}
-			// nil result so it is done.  Remove from work items.
-			workItems.removeValue(forKey: item.uid)
+			else {
+				NSLog("execute nil \(workItem.uid)")
+				if ( item.results.count == 0 && workItem.retainCount > 0 ) {
+					if ( workItem.isForcedOut ) {
+						print("was forced out")
+					}
+					else {
+						fatalError("done without result is bad")
+					}
+				}
+				// nil result so it is done.  Remove from work items.
+				item.workItem = nil
+			}
 		}
 	}
 
-	func nextWorkItem() -> WorkItem? {
-		var result:WorkItem? = nil
+	func nextWorkItem() -> Item? {
+		var result:Item? = nil
 
 		workItemQueueDispatchQueue.sync {
 			let priorities = workItemQueues.keys.sorted()
@@ -443,16 +467,16 @@ public class MJFastImageLoader {
 			outerLoop: for priority in priorities {
 				if let queue = workItemQueues[priority] {
 					var removeCount = 0
-					for workItem in queue {
+					for item in queue {
 						removeCount += 1
-						if ( workItem.retainCount > 0 ) {
+						if ( item.workItem?.retainCount ?? 0 > 0 ) {
 							workItemQueues[priority]!.removeFirst(removeCount)
-							result = workItem
+							result = item
 							break outerLoop
 						}
 						else {
 							// Remove from queue if it is not retained, so they will not accumulate
-							workItem.isCancelled = true
+							item.workItem?.isCancelled = true
 							workItemQueues[priority]!.remove(at: removeCount - 1)
 							removeCount -= 1
 						}
@@ -460,7 +484,7 @@ public class MJFastImageLoader {
 				}
 			}
 
-			print("nextWorkItem is \(result?.uid)")
+			NSLog("nextWorkItem is \(result?.workItem?.uid)")
 		}
 
 		return result
@@ -472,7 +496,7 @@ public class MJFastImageLoader {
 	var criticalProcessingActiveCount = 0
 	let criticalProcessingWorkQueue = DispatchQueue(label: "MJFastImageLoader.criticalProcessingQueue", qos: .userInitiated, attributes: .concurrent)
 	let processingQueue = DispatchQueue(label: "MJFastImageLoader.processingQueue")
-	var workItemQueues:[Int:[WorkItem]] = [:]
+	var workItemQueues:[Int:[Item]] = [:]
 	var workItemQueuesHasNoCritical = true
 	let workItemQueueDispatchQueue = DispatchQueue(label: "MJFastImageLoader.workItemQueueDispatchQueue")
 	let quotaRecoveryDispatchQueue = DispatchQueue(label: "MJFastImageLoader.quotaRecoveryDispatchQueue")
