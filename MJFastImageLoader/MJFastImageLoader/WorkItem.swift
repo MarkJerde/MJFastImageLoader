@@ -44,6 +44,7 @@ class WorkItem {
 	let uid:Int
 	var basePriority:MJFastImageLoader.Priority
 	var isCancelled = false
+	var isForcedOut = false
 	var state:Int = 0
 	var currentImage:UIImage? = nil
 	var haveImage = false
@@ -152,6 +153,7 @@ class WorkItem {
 				if ( nil != resultImage ) {
 					haveImage = true
 				}
+				final = true
 				return resultImage
 			}
 
@@ -161,6 +163,7 @@ class WorkItem {
 			return nil
 		}
 	}
+	var final = false
 
 	func notify(notification: MJFastImageLoaderNotification?, image: UIImage, previous: MJFastImageLoaderNotification?) {
 		// Handle the linked list ourselves so it is not vulnerable to breakage by implementors of items in it

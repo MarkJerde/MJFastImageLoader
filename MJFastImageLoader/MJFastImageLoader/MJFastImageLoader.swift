@@ -54,7 +54,7 @@ public class MJFastImageLoader {
 
 	public var thumbnailPixels:Float = 400.0
 	public var maximumCachedImages = 150
-	public var maximumCachedMegabytes = 1000
+	public var maximumCachedBytes = 360 * 1024 * 1024 // 360 MB
 	public var ignoreCacheForTest = false // To limit benefit for test / demo
 
 	// MARK: Public Methods - Settings
@@ -105,7 +105,7 @@ public class MJFastImageLoader {
 						doProcess = false
 					}
 				}
-				else if ( nil != results[uid] )
+				else if ( results[uid]?.count ?? 0 > 0 )
 				{
 					// We have results but no work item, so we must be fully formed
 					doProcess = false
@@ -124,33 +124,7 @@ public class MJFastImageLoader {
 				workItems[uid] = workItem
 				leastRecentlyUsed.append(image)
 
-				if ( leastRecentlyUsed.count > maximumCachedImages && !ignoreCacheForTest ) {
-					// Cache limits are incompatible with ignoreCacheForTest.
-
-					// Fabrication of a traditional for-loop, since we are removing N items matching a criteria from an array, starting at the front of the array
-					var i = 0
-					var count = leastRecentlyUsed.count
-					while ( i < count ) {
-						if ( true ) {
-							let lru = leastRecentlyUsed[i]
-							let index = hintMap[lru]!
-							if let image = results[index] {
-								maxResultsVolumeBytes -= image.cgImage!.height * image.cgImage!.bytesPerRow
-							}
-							results[index] = nil
-							workItems.removeValue(forKey: index)
-							hintMap[lru] = nil
-							leastRecentlyUsed.remove(at: i)
-							i -= 1
-							count -= 1
-						}
-
-						if ( hintMap.count <= maximumCachedImages ) {
-							break
-						}
-						i += 1
-					}
-				}
+				checkQuotas()
 			}
 		}
 		if ( doProcess ) {
@@ -178,6 +152,92 @@ public class MJFastImageLoader {
 		return uid
 	}
 
+	func checkQuotas() {
+		let overImageCountLimit = leastRecentlyUsed.count > maximumCachedImages
+		let overImageBytesLimit = maxResultsVolumeBytes > maximumCachedBytes
+		NSLog("quota check at \(leastRecentlyUsed.count) and \(maxResultsVolumeBytes)")
+
+		if ( (overImageCountLimit || overImageBytesLimit) && !ignoreCacheForTest ) {
+			// Cache limits are incompatible with ignoreCacheForTest.
+
+			quotaRecoveryDispatchQueue.sync {
+				removeLeastRecentlyUsedItemsToFitQuota(force: false)
+
+				NSLog("quota recovered to \(leastRecentlyUsed.count) and \(maxResultsVolumeBytes)")
+			}
+		}
+	}
+
+	func removeLeastRecentlyUsedItemsToFitQuota( force:Bool ) {
+		var removedSomething = false
+
+		// Fabrication of a traditional for-loop, since we are removing N items matching a criteria from an array, starting at the front of the array
+		var i = 0
+		var count = leastRecentlyUsed.count
+		while ( i < count ) {
+			let lru = leastRecentlyUsed[i]
+			let index = hintMap[lru]!
+			let noLongerNeeded = workItems[index]?.isCancelled ?? true
+			let noLongerRunning = workItems[index]?.final ?? true
+			if ( force || noLongerNeeded ) {
+				// Remove the largest version of each image, or all versions if we are over count.
+				if let sizes = results[index] {
+					allImages: while let max = sizes.keys.max() {
+						if let image = sizes[max] {
+							let bytesThis = image.cgImage!.height * image.cgImage!.bytesPerRow
+							maxResultsVolumeBytes -= bytesThis
+							removedSomething = true
+						}
+						results[index]![max] = nil
+						if ( leastRecentlyUsed.count <= maximumCachedImages ) {
+							break allImages
+						}
+					}
+
+					// If there are no more versions, remove empty dictionary from results.
+					if ( results[index]!.count == 0 ) {
+						if ( !noLongerNeeded ) {
+							workItems[index]?.isForcedOut = true
+						}
+						results[index] = nil
+					}
+				}
+
+				// Don't work on it any more, since we have removed at least its largest product
+				if ( nil != workItems[index]?.currentImage ) {
+					workItems[index]?.currentImage = nil
+				}
+				workItems.removeValue(forKey: index)
+
+				// If we removed it completely, remove it from hints, LRU, and count
+				if ( results[index]?.count ?? 0 == 0 ) {
+					hintMap[lru] = nil
+					leastRecentlyUsed.remove(at: i)
+					i -= 1
+					count -= 1
+					removedSomething = true
+				}
+
+				if ( hintMap.count <= maximumCachedImages
+					&& maxResultsVolumeBytes <= maximumCachedBytes ) {
+					break
+				}
+			}
+
+			i += 1
+		}
+
+		if ( !removedSomething ) {
+			// Try again without filtering.
+
+			if ( force ) {
+				fatalError("Failed to recover anything while over quota.")
+			}
+
+			removeLeastRecentlyUsedItemsToFitQuota(force: true)
+		}
+	}
+
 	public func cancel(image: Data) {
 		if let index = hintMap.index(forKey: image)
 		{
@@ -189,9 +249,9 @@ public class MJFastImageLoader {
 				if ( !workItem.release() ) {
 				}
 			}
-			else if ( nil == results[uid] )
+			else if ( results[uid]?.count ?? 0 == 0 )
 			{
-				fatalError("bad things not old")
+				fatalError("Cancelled before processing anything")
 			}
 		}
 	}
@@ -218,7 +278,12 @@ public class MJFastImageLoader {
 			}
 			leastRecentlyUsed.append(image)
 
-			return results[uid]
+			if let sizes = results[uid] {
+				if let max = sizes.keys.max() {
+					return sizes[max]
+				}
+			}
+			return nil
 		}
 		return nil
 	}
@@ -250,10 +315,10 @@ public class MJFastImageLoader {
 	let intakeQueue = DispatchQueue(label: "MJFastImageLoader.intakeQueue")
 	var nextUID:Int = 0
 	var workItems:[Int:WorkItem] = [:]
-	var results:[Int:UIImage] = [:]
-	var maxResultsVolumeBytes = 0
 	var leastRecentlyUsed:[Data] = []
 	var hintMap:[Data:Int] = [:]
+	var results:[Int:[CGFloat:UIImage]] = [:]
+	var maxResultsVolumeBytes = 0
 
 	func processWorkItem() {
 // fixme - wrap this all in a non-concurrent GCD queue
@@ -315,13 +380,12 @@ public class MJFastImageLoader {
 		NSLog("execute \(item.uid) at \(item.state)")
 		if let result = item.next(thumbnailPixels: self.thumbnailPixels) {
 			NSLog("execute good \(item.uid)")
-			if let image = results[item.uid] {
-				maxResultsVolumeBytes -= image.cgImage!.height * image.cgImage!.bytesPerRow
+			if ( nil == results[item.uid] ) {
+				results[item.uid] = [:]
 			}
-			results[item.uid] = result
-			if let image = results[item.uid] {
-				maxResultsVolumeBytes += image.cgImage!.height * image.cgImage!.bytesPerRow
-			}
+			results[item.uid]![result.size.height] = result
+			maxResultsVolumeBytes += result.cgImage!.height * result.cgImage!.bytesPerRow
+			checkQuotas()
 			processingQueue.async {
 				/*print("sleep")
 				sleep(10)
@@ -337,8 +401,13 @@ public class MJFastImageLoader {
 		}
 		else {
 			NSLog("execute nil \(item.uid)")
-			if ( nil == results[item.uid] && item.retainCount > 0 ) {
-				fatalError("done without result is bad")
+			if ( results[item.uid]?.count ?? 0 == 0 && item.retainCount > 0 ) {
+				if ( item.isForcedOut ) {
+					print("was forced out")
+				}
+				else {
+					fatalError("done without result is bad")
+				}
 			}
 			// nil result so it is done.  Remove from work items.
 			workItems.removeValue(forKey: item.uid)
@@ -386,5 +455,6 @@ public class MJFastImageLoader {
 	var workItemQueues:[Int:[WorkItem]] = [:]
 	var workItemQueuesHasNoCritical = true
 	let workItemQueueDispatchQueue = DispatchQueue(label: "MJFastImageLoader.workItemQueueDispatchQueue")
+	let quotaRecoveryDispatchQueue = DispatchQueue(label: "MJFastImageLoader.quotaRecoveryDispatchQueue")
 
 }
