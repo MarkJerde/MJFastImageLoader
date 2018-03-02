@@ -244,9 +244,28 @@ public class MJFastImageLoader {
 			var uid = -1
 			uid = hintMap[index].value
 			uid = hintMap[image]!
+			NSLog("cancel \(uid)")
 			if let workItem = workItems[uid]
 			{
 				if ( !workItem.release() ) {
+					workItem.isCancelled = true
+					workItems[uid] = nil
+					if let index = workItemQueues[workItem.priority]?.index(of: workItem) {
+						workItemQueues[workItem.priority]!.remove(at: index)
+					}
+					else {
+						NSLog("brute removal of \(workItem.uid) from workItemQueues")
+						var removed = false
+						workItemQueues.keys.forEach({ (priority) in
+							if let index = workItemQueues[priority]?.index(of: workItem) {
+								workItemQueues[priority]!.remove(at: index)
+								removed = true
+							}
+						})
+						if ( !removed ) {
+							NSLog("failed at brute removal of \(workItem.uid) from workItemQueues")
+						}
+					}
 				}
 			}
 			else if ( results[uid]?.count ?? 0 == 0 )

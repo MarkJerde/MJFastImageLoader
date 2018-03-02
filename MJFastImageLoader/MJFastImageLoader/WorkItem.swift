@@ -28,7 +28,7 @@
 
 import Foundation
 
-class WorkItem {
+class WorkItem : Equatable {
 	init(data: Data, uid: Int, basePriority: MJFastImageLoader.Priority) {
 		self.data = data
 		self.uid = uid
@@ -189,6 +189,10 @@ class WorkItem {
 			// Notify next link in the list
 			notify(notification: notification.next, image: image, previous: notification)
 		}
+	}
+
+	public static func == (lhs: WorkItem, rhs: WorkItem) -> Bool {
+		return lhs === rhs
 	}
 }
 
