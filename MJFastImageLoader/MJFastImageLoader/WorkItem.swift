@@ -88,7 +88,10 @@ class WorkItem : Equatable {
 
 			if let thumbnail = CGImageSourceCreateThumbnailAtIndex(imageSource!, 0, options)
 			{
-				let result = UIImage(cgImage: thumbnail)
+				//let result = UIImage(cgImage: thumbnail)
+				let result = trackedUIImage(cgImage: thumbnail)
+				result.uid = self.uid
+				result.thumb = true
 
 				if ( result.size.width >= cgThumbnailMaxPixels
 					|| result.size.height >= cgThumbnailMaxPixels )
@@ -144,8 +147,12 @@ class WorkItem : Equatable {
 
 				UIGraphicsBeginImageContextWithOptions(image.size, false, image.scale)
 				image.draw(at: .zero)
-				let resultImage = UIGraphicsGetImageFromCurrentImageContext()
+				let resultImageA = UIGraphicsGetImageFromCurrentImageContext()
+				let resultImage = (nil == resultImageA) ? nil : trackedUIImage(cgImage: resultImageA!.cgImage!)
 				UIGraphicsEndImageContext()
+				resultImage?.uid = self.uid
+				resultImage?.thumb = false
+
 				if let resultImage = resultImage
 				{
 					notify(notification: notification, image: resultImage, previous: nil)
@@ -164,6 +171,16 @@ class WorkItem : Equatable {
 		}
 	}
 	var final = false
+
+	open class trackedUIImage : UIImage {
+		var thumb = false
+		var uid = 0
+
+		deinit {
+			let bytesThis = cgImage!.height * cgImage!.bytesPerRow
+			NSLog("ARC deinit \(uid) \(thumb ? "thumb" : "final") \(Unmanaged.passUnretained(self).toOpaque()) for \(bytesThis)")
+		}
+	}
 
 	func notify(notification: MJFastImageLoaderNotification?, image: UIImage, previous: MJFastImageLoaderNotification?) {
 		// Handle the linked list ourselves so it is not vulnerable to breakage by implementors of items in it
