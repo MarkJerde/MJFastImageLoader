@@ -66,6 +66,10 @@ open class MJFastImageLoaderBatch {
 			if ( first || hitQuota ) {
 				let timeout:Double = hitQuota ? 0.0 : batchUpdateTimeLimit
 				//let timeout2:Int = hitQuota ? 0 : 5
+
+				// Cancel the previous timeLimitWorkItem if there were one.
+				timeLimitWorkItem?.cancel()
+
 				timeLimitWorkItem = DispatchWorkItem {
 					// Cancel the timeout, if there were one
 					self.timeLimitWorkItem?.cancel()
