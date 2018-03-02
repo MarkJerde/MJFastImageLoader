@@ -54,6 +54,8 @@ open class MJFastImageLoaderNotification: Equatable {
 	open func cancel() {
 		cancelled = true
 		_ = workItem?.release() // for our retain
+		workItem = nil
+		// fixme - if release brings it down to zero it should be cleaned up in MJFastImageLoader
 	}
 
 	public static func == (lhs: MJFastImageLoaderNotification, rhs: MJFastImageLoaderNotification) -> Bool {
