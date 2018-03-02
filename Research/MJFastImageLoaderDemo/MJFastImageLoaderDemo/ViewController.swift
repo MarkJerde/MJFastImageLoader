@@ -298,6 +298,18 @@ class ViewController: UIViewController {
 						self.setStatus( force: true )
 						return
 					}
+
+					let imgView = randomImageView
+					let imageIndex = self.imageViews.index(of: imgView)!
+					if let updater = self.imageUpdaters[imageIndex] {
+						updater.cancel()
+						self.imageUpdaters[imageIndex] = nil
+					}
+					if let data = self.imageDatasInUse[imageIndex] {
+						MJFastImageLoader.shared.cancel(image: data)
+						self.imageDatasInUse[imageIndex] = nil
+					}
+
 					randomImageView.image = nil
 					randomImageView.backgroundColor = UIColor.orange
 				}
@@ -356,9 +368,11 @@ class ViewController: UIViewController {
 		let imageIndex = imageViews.index(of: imgView)!
 		if let updater = imageUpdaters[imageIndex] {
 			updater.cancel()
+			imageUpdaters[imageIndex] = nil
 		}
 		if let data = imageDatasInUse[imageIndex] {
 			MJFastImageLoader.shared.cancel(image: data)
+			imageDatasInUse[imageIndex] = nil
 		}
 		let data = imageDatas[imageDataIndex % imageDatas.count]
 		imageDataIndex += 1
