@@ -171,6 +171,14 @@ public class MJFastImageLoader {
 
 				NSLog("quota recovered to \(leastRecentlyUsed.count) and \(self.maxResultsVolumeBytes)")
 			}
+
+			// The memory release will be delayed until GCD gets a chance to breathe.  So suspend the queues for a very short moment to allow time.
+			processingQueue.suspend()
+			quotaRecoveryDispatchQueue.suspend()
+			itemsAccessQueue.asyncAfter(deadline: .now() + .milliseconds(1), execute: {
+				self.quotaRecoveryDispatchQueue.resume()
+				self.processingQueue.resume()
+			})
 		}
 	}
 
