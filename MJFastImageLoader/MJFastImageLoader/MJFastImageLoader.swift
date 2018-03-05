@@ -167,7 +167,7 @@ public class MJFastImageLoader {
 			// Cache limits are incompatible with ignoreCacheForTest.
 
 			quotaRecoveryDispatchQueue.sync {
-				removeLeastRecentlyUsedItemsToFitQuota(force: false)
+				removeLeastRecentlyUsedItemsToFitQuota(pass: 0)
 
 				NSLog("quota recovered to \(leastRecentlyUsed.count) and \(self.maxResultsVolumeBytes)")
 			}
@@ -182,9 +182,7 @@ public class MJFastImageLoader {
 		}
 	}
 
-	func removeLeastRecentlyUsedItemsToFitQuota( force:Bool ) {
-		var removedSomething = false
-
+	func removeLeastRecentlyUsedItemsToFitQuota( pass:Int ) {
 		itemsAccessQueue.sync {
 			// Fabrication of a traditional for-loop, since we are removing N items matching a criteria from an array, starting at the front of the array
 			var i = 0
@@ -194,7 +192,48 @@ public class MJFastImageLoader {
 				if let item = items[lru] {
 					let noLongerNeeded = items[lru]?.workItem?.isCancelled ?? true
 					let noLongerRunning = items[lru]?.workItem?.final ?? true
-					if ( force || noLongerNeeded ) {
+					var okayToRemove = false
+					switch pass {
+					case 0,2,4:
+						// First / third / fifth pass.  Only those noLongerNeeded with 2+ resolution options in the oldest half.
+						if ( !noLongerNeeded
+							&& item.results.count > 1
+							&& i < count / 2 ) {
+							okayToRemove = true
+						}
+						break
+
+					case 1,3,5:
+						// Second / fourth / sixth pass.  Anything noLongerNeeded in the oldest half.
+						if ( !noLongerNeeded
+							&& i < count / 2 ) {
+							okayToRemove = true
+						}
+						break
+
+					case 6:
+						// Seventh pass.  Only those with 2+ resolution options in the oldest half.
+						if ( item.results.count > 1
+							&& i < count / 2 ) {
+							okayToRemove = true
+						}
+						break
+
+					case 7:
+						// Eighth pass.  Anything the oldest half.
+						if ( !noLongerNeeded
+							&& i < count / 2 ) {
+							okayToRemove = true
+						}
+						break
+
+					default:
+						// Ninth+ pass.  Anything at all.
+						okayToRemove = true
+						break
+					}
+
+					if ( okayToRemove ) {
 						// Remove the largest version of each image, or all versions if we are over count.
 						let sizes = item.results
 						allImages: while let max = sizes.keys.max() {
@@ -202,7 +241,6 @@ public class MJFastImageLoader {
 								let bytesThis = image.cgImage!.height * image.cgImage!.bytesPerRow
 								NSLog("ARC want to deinit \(Unmanaged.passUnretained(image).toOpaque()) \(noLongerNeeded) \(noLongerRunning) for \(bytesThis)")
 								maxResultsVolumeBytes -= bytesThis
-								removedSomething = true
 							}
 							item.results[max] = nil
 							if ( leastRecentlyUsed.count <= maximumCachedImages ) {
@@ -229,7 +267,6 @@ public class MJFastImageLoader {
 							leastRecentlyUsed.remove(at: i)
 							i -= 1
 							count -= 1
-							removedSomething = true
 						}
 
 						if ( items.count <= maximumCachedImages
@@ -243,14 +280,12 @@ public class MJFastImageLoader {
 			}
 		}
 
-		if ( !removedSomething ) {
-			// Try again without filtering.
+		if ( (items.count > maximumCachedImages
+			|| maxResultsVolumeBytes > maximumCachedBytes)
+			&& leastRecentlyUsed.count > 0 ) {
+			// Try again with less filtering.
 
-			if ( force ) {
-				fatalError("Failed to recover anything while over quota.")
-			}
-
-			removeLeastRecentlyUsedItemsToFitQuota(force: true)
+			removeLeastRecentlyUsedItemsToFitQuota(pass: pass + 1)
 		}
 	}
 
