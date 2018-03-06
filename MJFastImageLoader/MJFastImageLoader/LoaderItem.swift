@@ -1,8 +1,8 @@
 //
-//  MJFastImageLoaderView.swift
+//  LoaderItem.swift
 //  MJFastImageLoader
 //
-//  Created by Mark Jerde on 2/19/18.
+//  Created by Mark Jerde on 3/6/18.
 //  Copyright © 2018 Mark Jerde.
 //
 //  This file is part of MJFastImageLoader
@@ -28,13 +28,32 @@
 
 import Foundation
 
-class MJFastImageLoaderView: UIImageView {
+/// A tracking mechanism to store WorkItem and processed results for a given input, providing Equatable protocol.
+class LoaderItem : Equatable {
+	/// The WorkItem for the LoaderItem.
+	var workItem:WorkItem? = nil
 
-	var imageLoaderUID = -1
+	/// The processed outputs for the LoaderItem.
+	var results:[CGFloat:UIImage] = [:]
 
-	/*func setData(imageData: Data, priority: Int) {
-		imageLoaderUID = MJFastImageLoader.shared.enqueue(image: imageData, priority: priority)
-	}*/
+	/// The uid for the LoaderItem.
+	private(set) var uid = -1
 
+	/// Creates a loader item object initialized with the provided WorkItem.
+	///
+	/// - Parameter workItem: The WorkItem to use.
+	init(workItem: WorkItem) {
+		self.workItem = workItem
+		uid = workItem.uid
+	}
 
+	/// Responds with the equality of two loader items.
+	///
+	/// - Parameters:
+	///   - lhs: A loader item to check for equality.
+	///   - rhs: A loader item to check for equality.
+	/// - Returns: True if both are the same instance.  False if they are not the same instance even if their content is the same.
+	static func ==(lhs: LoaderItem, rhs: LoaderItem) -> Bool {
+		return lhs === rhs
+	}
 }

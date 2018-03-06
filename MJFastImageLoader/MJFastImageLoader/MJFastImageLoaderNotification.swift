@@ -30,15 +30,25 @@ import Foundation
 
 open class MJFastImageLoaderNotification: Equatable {
 	// Use a linked list because the most likely cases will be zero or one node, and multi-node won't involve searching.
+	/// The notification following this one.
 	var next:MJFastImageLoaderNotification? = nil
+	/// The state of having been cancelled.
 	var cancelled = false
+	/// The work item which should be informed if this notification is cancelled.
 	var workItem:WorkItem? = nil
+	/// The batch this notification is part of.
 	private let batch:MJFastImageLoaderBatch?
 
+	/// Creates a notification coordinating with the provided batch.
+	///
+	/// - Parameter batch: The batch to coordinate with if desired.
 	public init(batch: MJFastImageLoaderBatch?) {
 		self.batch = batch
 	}
 
+	/// Adds the provided image to the batch and / or provides notification immediately.
+	///
+	/// - Parameter image: The image to notify with.
 	func queueNotifyEvent(image: UIImage) {
 		if let batch = batch {
 			batch.queueNotifyEvent(image: image, notification: self)
@@ -48,6 +58,9 @@ open class MJFastImageLoaderNotification: Equatable {
 		}
 	}
 
+	/// Performs the notification.
+	///
+	/// - Parameter image: The image that has been rendered.
 	open func notify(image: UIImage) {
 	}
 
@@ -58,6 +71,12 @@ open class MJFastImageLoaderNotification: Equatable {
 		// fixme - if release brings it down to zero it should be cleaned up in MJFastImageLoader
 	}
 
+	/// Responds with the equality of two notifications.
+	///
+	/// - Parameters:
+	///   - lhs: A notification to check for equality.
+	///   - rhs: A notification to check for equality.
+	/// - Returns: True if both are the same instance.  False if they are not the same instance even if their content is the same.
 	public static func == (lhs: MJFastImageLoaderNotification, rhs: MJFastImageLoaderNotification) -> Bool {
 		return lhs === rhs
 	}

@@ -28,37 +28,73 @@
 
 import Foundation
 
+/// A tracking mechanism to store data to be processed, processing priority, and processing state.
 class WorkItem : Equatable {
+	/// Creates a work item object initialized with the provided data, uid, and priority.
+	///
+	/// - Parameters:
+	///   - data: The data to processs.
+	///   - uid: The uid of this data to process.
+	///   - basePriority: The priority at which it should be processed.
 	init(data: Data, uid: Int, basePriority: MJFastImageLoader.Priority) {
 		self.data = data
 		self.uid = uid
 		self.basePriority = basePriority
+
+		// Fix any defect in priority being lower than minimum, critical being lowest numbered.
+		if ( Decimal(self.basePriority.rawValue) < Decimal(MJFastImageLoader.Priority.critical.rawValue) ) {
+			self.basePriority = .critical
+		}
 	}
 
+	/// The current priority of the work item, which decays as each render completes.
 	var priority: Int {
-		// Only add state to decrease priority if we have rendered something already
-		return basePriority.rawValue + (haveImage ? state : 0)
+		// Only add state to decrease priority if we have rendered something already.
+		// Multiply priority by three to provide separation for state, retaining the 1 is the lowest possible (most critical) value.
+		return ((basePriority.rawValue - 1) * 3 + 1) + (haveImage ? state : 0)
 	}
 
-	let data:Data
-	let uid:Int
+	/// The base priority to work from.
 	var basePriority:MJFastImageLoader.Priority
+	/// The uid of the data.
+	let uid:Int
+	/// The state of cancellation.
 	var isCancelled = false
+	/// The state of having been forced out by quota limits.
 	var isForcedOut = false
-	var state:Int = 0
-	var currentImage:UIImage? = nil
-	var haveImage = false
+	/// The notification(s) to inform when renders complete.
 	var notification:MJFastImageLoaderNotification? = nil
+	/// The most recent rendering.
+	var currentImage:UIImage? = nil
 
-	public static let retainQueue = DispatchQueue(label: "MJFastImageLoader.workItemRetention")
+	/// The current state.
+	private(set) var state:Int = 0
+	/// The state of having completed the final possible render (full resolution).
+	private(set) var final = false
+	
+	/// The data to process.
+	private let data:Data
+	/// The state of having already rendered at least one image.
+	private var haveImage = false
+
+
+	// MARK: Counting interested parties
+
+	/// The GCD queue to provide thread-safe access to interest retention.
+	private static let retainQueue = DispatchQueue(label: "MJFastImageLoader.workItemRetention")
+	/// The current number of interested parties.
 	var retainCount = 1
 
-	public func retain () {
+	/// Indicates that there is an additional party interested in the results of this work.
+	func retain () {
 		WorkItem.retainQueue.sync {
 			self.retainCount += 1
 		}
 	}
-	public func release () -> Bool {
+	/// Indicates that their is one fewer party interested in the results of this work.
+	///
+	/// - Returns: True if there are still interested parties, false otherwise.
+	func release () -> Bool {
 		var nonZero = true
 		WorkItem.retainQueue.sync {
 			self.retainCount -= 1
@@ -67,7 +103,14 @@ class WorkItem : Equatable {
 		return nonZero
 	}
 
-	public func next( thumbnailPixels: Float ) -> UIImage? {
+
+	// MARK: Execute work
+
+	/// Renders the next-higher-resolution version of the image.
+	///
+	/// - Parameter thumbnailPixels: Maximum height or width of initial version in pixels.
+	/// - Returns: The image rendered.
+	func next( thumbnailPixels: Float ) -> UIImage? {
 		let thumbnailMaxPixels = thumbnailPixels
 		let cgThumbnailMaxPixels = CGFloat(thumbnailPixels)
 
@@ -170,38 +213,14 @@ class WorkItem : Equatable {
 			return nil
 		}
 	}
-	var final = false
 
-	// Debug / diagnostic class which can be used in place of UIImage to provide QoS data for memory recovery.
-	// This was created to aid in identifying a pseudo-memory-leak which could have been caused by excess references but which turned out to be a side-effect of GCD being kept 100% busy.  Provides NSLog reporting intended and actual time of deinit and milliseconds delta between them.
-	open class TrackedUIImage : UIImage {
-		// Details the user can set if they see need.
-		var thumb = false
-		var uid = 0
-
-		// The time at which shouldDeinitSoon was called.
-		private var deinitTime:Date? = nil
-
-		// Inform the object that we expect deinit to be called shortly, so that it can give a time delta between intention and action.
-		public func shouldDeinitSoon(bool1:Bool, bool2:Bool) {
-			log(event: "want to deinit", extra: "\(bool1) \(bool2) ")
-			deinitTime = Date()
-		}
-
-		// Calculate bytes estimate and NSLog some info.
-		private func log(event:String, extra:String) {
-			let bytesThis = cgImage!.height * cgImage!.bytesPerRow
-			NSLog("TrackedUIImage \(event) \(uid) \(thumb ? "thumb" : "final") \(Unmanaged.passUnretained(self).toOpaque()) \(extra)for \(bytesThis) bytes")
-		}
-
-		// Report some identifying information and the delta in milliseconds since intention to deinit.
-		deinit {
-			let late = Date().timeIntervalSince(deinitTime ?? Date())
-			log(event: "deinit", extra: "\(late * 1000) ms late ")
-		}
-	}
-
-	func notify(notification: MJFastImageLoaderNotification?, image: UIImage, previous: MJFastImageLoaderNotification?) {
+	/// Notifies any registered notifications that a new render has been produced.
+	///
+	/// - Parameters:
+	///   - notification: The notification to start with.
+	///   - image: The image that has been rendered.
+	///   - previous: The previous notification in the linked list.
+	private func notify(notification: MJFastImageLoaderNotification?, image: UIImage, previous: MJFastImageLoaderNotification?) {
 		// Handle the linked list ourselves so it is not vulnerable to breakage by implementors of items in it
 		if ( nil == notification && nil == previous )
 		{
@@ -227,8 +246,57 @@ class WorkItem : Equatable {
 		}
 	}
 
+	/// Responds with the equality of two work items.
+	///
+	/// - Parameters:
+	///   - lhs: A work item to check for equality.
+	///   - rhs: A work item to check for equality.
+	/// - Returns: True if both are the same instance.  False if they are not the same instance even if their content is the same.
 	public static func == (lhs: WorkItem, rhs: WorkItem) -> Bool {
 		return lhs === rhs
+	}
+
+	
+	// MARK: Diagnostic mechanisms
+
+	// Debug / diagnostic class which can be used in place of UIImage to provide QoS data for memory recovery.
+	// This was created to aid in identifying a pseudo-memory-leak which could have been caused by excess references but which turned out to be a side-effect of GCD being kept 100% busy.  Provides NSLog reporting intended and actual time of deinit and milliseconds delta between them.
+	/// A diagnostic mechanism to provide a UIImage that monitors the timeliness of its removal from memory.
+	class TrackedUIImage : UIImage {
+		// Details the user can set if they see need.
+		/// The state of being a thumbnail version rather than final render.
+		var thumb = false
+		/// The uid of the data this was rendered for.
+		var uid = 0
+
+		/// The time at which shouldDeinitSoon was called.
+		private var deinitTime:Date? = nil
+
+		/// Informs the object that we expect deinit to be called shortly, so that it can give a time delta between intention and action.
+		///
+		/// - Parameters:
+		///   - bool1: An arbitrary bool for logging of data from caller.
+		///   - bool2: Another arbitrary bool for logging of data from caller.
+		public func shouldDeinitSoon(bool1:Bool, bool2:Bool) {
+			log(event: "want to deinit", extra: "\(bool1) \(bool2) ")
+			deinitTime = Date()
+		}
+
+		/// Calculates bytes estimate and NSLogs some info.
+		///
+		/// - Parameters:
+		///   - event: Description of what event is happening.
+		///   - extra: Extra description of state to include.
+		private func log(event:String, extra:String) {
+			let bytesThis = cgImage!.height * cgImage!.bytesPerRow
+			NSLog("TrackedUIImage \(event) \(uid) \(thumb ? "thumb" : "final") \(Unmanaged.passUnretained(self).toOpaque()) \(extra)for \(bytesThis) bytes")
+		}
+
+		// Report some identifying information and the delta in milliseconds since intention to deinit.
+		deinit {
+			let late = Date().timeIntervalSince(deinitTime ?? Date())
+			log(event: "deinit", extra: "\(late * 1000) ms late ")
+		}
 	}
 }
 

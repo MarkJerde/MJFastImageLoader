@@ -34,6 +34,7 @@
 import UIKit
 import MJFastImageLoader
 
+
 // MARK: Sequence Shuffle Extensions
 
 extension MutableCollection where Indices.Iterator.Element == Index {
@@ -60,6 +61,7 @@ extension Sequence {
 	}
 }
 
+
 // MARK: ViewController
 
 class ViewController: UIViewController {
@@ -85,7 +87,7 @@ class ViewController: UIViewController {
 	var runTooFastToKeepUp = false
 	var imageDatas:[Data] = []
 	var imageDatasInUse:[Data?] = [nil,nil,nil,nil,nil,nil]
-	var imageUpdaters:[UIImageUpdater?] = [nil,nil,nil,nil,nil,nil]
+	var imageUpdaters:[UIImageViewUpdater?] = [nil,nil,nil,nil,nil,nil]
 	var imageDataIndex = 0
 
 	override func viewDidLoad() {
@@ -130,31 +132,6 @@ class ViewController: UIViewController {
 		// Dispose of any resources that can be recreated.
 	}
 
-	public class UIImageUpdater : MJFastImageLoaderNotification {
-		let imageView:UIImageView
-
-		init(imageView: UIImageView, batch: MJFastImageLoaderBatch?) {
-			self.imageView = imageView
-			super.init(batch: batch)
-		}
-
-		override func notify(image: UIImage) {
-			print("notify")
-			if ( Thread.isMainThread ) {
-				self.updateImage(image: image)
-			}
-			else {
-				DispatchQueue.main.async {
-					self.updateImage(image: image)
-				}
-			}
-		}
-
-		func updateImage(image: UIImage) {
-			print("update \(self.imageView.accessibilityHint) \(Date().timeIntervalSince1970)")
-			self.imageView.image = image
-		}
-	}
 
 	// MARK: Buttons
 
@@ -201,6 +178,7 @@ class ViewController: UIViewController {
 		}
 	}
 
+
 	// MARK: Test Execution
 
 	func step() {
@@ -218,7 +196,7 @@ class ViewController: UIViewController {
 		
 		// Blank out all images
 		imageViews.forEach({ (imageView) in
-			self.imageView.accessibilityHint = String( describing: imageViews.index(of: imageView) )
+			imageView.accessibilityHint = String( describing: imageViews.index(of: imageView) )
 			imageView.image = nil
 			imageView.backgroundColor = UIColor.red
 		})
@@ -381,7 +359,7 @@ class ViewController: UIViewController {
 			_ = MJFastImageLoader.shared.enqueue(image: data, priority: .critical)
 			DispatchQueue.main.sync {
 				print("do set image \(imageIndex) from index \(imageDatas.index(of: data))")
-				let updater = UIImageUpdater(imageView: imgView, batch: MJFastImageLoaderBatch.shared)
+				let updater = UIImageViewUpdater(imageView: imgView, batch: MJFastImageLoaderBatch.shared)
 				imageDatasInUse[imageIndex] = data
 				imageUpdaters[imageIndex] = updater
 				imgView.image = MJFastImageLoader.shared.image(image: data, notification: updater)
@@ -470,6 +448,7 @@ class ViewController: UIViewController {
 		}
 	}
 
+
 	// MARK: Image Download
 
 	// Image capture adapted from: https://stackoverflow.com/questions/24231680/loading-downloading-image-from-url-on-swift
@@ -492,7 +471,7 @@ class ViewController: UIViewController {
 			}
 			MJFastImageLoader.shared.enqueue(image: data, priority: .critical)
 			DispatchQueue.main.sync {
-				self.imageView.image = MJFastImageLoader.shared.image(image: data, notification: UIImageUpdater(imageView: self.imageView))
+				self.imageView.image = MJFastImageLoader.shared.image(image: data, notification: UIImageViewUpdater(imageView: self.imageView))
 			}*/
 		}
 	}
