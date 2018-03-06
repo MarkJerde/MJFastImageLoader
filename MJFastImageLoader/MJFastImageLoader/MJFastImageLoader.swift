@@ -109,7 +109,7 @@ public class MJFastImageLoader {
 					// We have results but no work item, so we must be fully formed
 				}
 				else {
-					fatalError("error to have no workItem or result but have hint")
+					fatalError("error to have no workItem or result but have hint for \(item.uid)")
 				}
 				return
 			}
@@ -263,6 +263,7 @@ public class MJFastImageLoader {
 							// fixme - This is just preventative, in case WorkItem doesn't deinit right away.  Make sure it does deinit right away and then remove this
 							item.workItem?.currentImage = nil
 						}
+						NSLog("Remove workItem \(item.uid)")
 						item.workItem = nil
 
 						// If we removed it completely, remove it from items, LRU, and count
@@ -305,6 +306,7 @@ public class MJFastImageLoader {
 				NSLog("cancel \(workItem.uid)")
 				if ( !workItem.release() ) {
 					workItem.isCancelled = true
+					NSLog("cancel() workItem \(item.uid)")
 					item.workItem = nil
 					workItemQueueDispatchQueue.sync {
 						if let index = workItemQueues[workItem.priority]?.index(of: item) {
@@ -431,9 +433,11 @@ public class MJFastImageLoader {
 	class Item : Equatable {
 		var workItem:WorkItem? = nil
 		var results:[CGFloat:UIImage] = [:]
+		var uid = -1
 
 		init(workItem: WorkItem) {
 			self.workItem = workItem
+			uid = workItem.uid
 		}
 
 		static func ==(lhs: MJFastImageLoader.Item, rhs: MJFastImageLoader.Item) -> Bool {
@@ -459,7 +463,6 @@ public class MJFastImageLoader {
 						if ( workItem.retainCount <= 0 )
 						{
 							print("skipped old")
-							fatalError("shouldn't be able to get to skipped old")
 							return
 						}
 					}
@@ -527,6 +530,7 @@ public class MJFastImageLoader {
 				checkQuotas()
 
 				if ( workItem.final ) {
+					NSLog("Final workItem \(item.uid)")
 					item.workItem = nil
 				}
 				else {
@@ -544,6 +548,7 @@ public class MJFastImageLoader {
 					}
 				}
 				// nil result so it is done.  Remove from work items.
+				NSLog("nil workItem \(item.uid)")
 				item.workItem = nil
 			}
 		}
@@ -569,7 +574,9 @@ public class MJFastImageLoader {
 							}
 							else {
 								// Remove from queue if it is not retained, so they will not accumulate
+								NSLog("Cancel unretained workItem \(item.uid)")
 								item.workItem?.isCancelled = true
+								item.workItem = nil // Clear the reference for now, but if we kept it we would be able to resume it later, so this could be revisited.
 								workItemQueues[priority]!.remove(at: removeCount - 1)
 								removeCount -= 1
 							}
