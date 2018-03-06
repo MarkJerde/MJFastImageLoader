@@ -89,7 +89,7 @@ class WorkItem : Equatable {
 			if let thumbnail = CGImageSourceCreateThumbnailAtIndex(imageSource!, 0, options)
 			{
 				//let result = UIImage(cgImage: thumbnail)
-				let result = trackedUIImage(cgImage: thumbnail)
+				let result = TrackedUIImage(cgImage: thumbnail)
 				result.uid = self.uid
 				result.thumb = true
 
@@ -148,7 +148,7 @@ class WorkItem : Equatable {
 				UIGraphicsBeginImageContextWithOptions(image.size, false, image.scale)
 				image.draw(at: .zero)
 				let resultImageA = UIGraphicsGetImageFromCurrentImageContext()
-				let resultImage = (nil == resultImageA) ? nil : trackedUIImage(cgImage: resultImageA!.cgImage!)
+				let resultImage = (nil == resultImageA) ? nil : TrackedUIImage(cgImage: resultImageA!.cgImage!)
 				UIGraphicsEndImageContext()
 				resultImage?.uid = self.uid
 				resultImage?.thumb = false
@@ -172,13 +172,32 @@ class WorkItem : Equatable {
 	}
 	var final = false
 
-	open class trackedUIImage : UIImage {
+	// Debug / diagnostic class which can be used in place of UIImage to provide QoS data for memory recovery.
+	// This was created to aid in identifying a pseudo-memory-leak which could have been caused by excess references but which turned out to be a side-effect of GCD being kept 100% busy.  Provides NSLog reporting intended and actual time of deinit and milliseconds delta between them.
+	open class TrackedUIImage : UIImage {
+		// Details the user can set if they see need.
 		var thumb = false
 		var uid = 0
 
-		deinit {
+		// The time at which shouldDeinitSoon was called.
+		private var deinitTime:Date? = nil
+
+		// Inform the object that we expect deinit to be called shortly, so that it can give a time delta between intention and action.
+		public func shouldDeinitSoon(bool1:Bool, bool2:Bool) {
+			log(event: "want to deinit", extra: "\(bool1) \(bool2) ")
+			deinitTime = Date()
+		}
+
+		// Calculate bytes estimate and NSLog some info.
+		private func log(event:String, extra:String) {
 			let bytesThis = cgImage!.height * cgImage!.bytesPerRow
-			NSLog("ARC deinit \(uid) \(thumb ? "thumb" : "final") \(Unmanaged.passUnretained(self).toOpaque()) for \(bytesThis)")
+			NSLog("TrackedUIImage \(event) \(uid) \(thumb ? "thumb" : "final") \(Unmanaged.passUnretained(self).toOpaque()) \(extra)for \(bytesThis) bytes")
+		}
+
+		// Report some identifying information and the delta in milliseconds since intention to deinit.
+		deinit {
+			let late = Date().timeIntervalSince(deinitTime ?? Date())
+			log(event: "deinit", extra: "\(late * 1000) ms late ")
 		}
 	}
 

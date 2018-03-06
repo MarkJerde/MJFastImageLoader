@@ -239,8 +239,12 @@ public class MJFastImageLoader {
 						allImages: while let max = sizes.keys.max() {
 							if let image = sizes[max] {
 								let bytesThis = image.cgImage!.height * image.cgImage!.bytesPerRow
-								NSLog("ARC want to deinit \(Unmanaged.passUnretained(image).toOpaque()) \(noLongerNeeded) \(noLongerRunning) for \(bytesThis)")
 								maxResultsVolumeBytes -= bytesThis
+
+								// If we are doing debug / analysis, help that along.
+								if let image = image as? WorkItem.TrackedUIImage {
+									image.shouldDeinitSoon(bool1: noLongerNeeded, bool2: noLongerRunning)
+								}
 							}
 							item.results[max] = nil
 							if ( leastRecentlyUsed.count <= maximumCachedImages ) {
