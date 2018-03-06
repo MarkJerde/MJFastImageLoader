@@ -103,15 +103,15 @@ public class MJFastImageLoader {
 						workItem.isCancelled = false
 						enqueueWork(item: item)
 					}
+					return
 				}
 				else if ( item.results.count > 0 )
 				{
 					// We have results but no work item, so we must be fully formed
+					return
 				}
-				else {
-					fatalError("error to have no workItem or result but have hint for \(item.uid)")
-				}
-				return
+
+				// It is possible to have an entry in items with no work and no results due to race timing.  This is okay.  Just create a new one below.
 			}
 		}
 
@@ -308,21 +308,33 @@ public class MJFastImageLoader {
 					workItem.isCancelled = true
 					NSLog("cancel() workItem \(item.uid)")
 					item.workItem = nil
+					var removed = false
 					workItemQueueDispatchQueue.sync {
 						if let index = workItemQueues[workItem.priority]?.index(of: item) {
 							workItemQueues[workItem.priority]!.remove(at: index)
+							removed = true
 						}
 						else {
 							NSLog("brute removal of \(workItem.uid) from workItemQueues")
-							var removed = false
 							workItemQueues.keys.forEach({ (priority) in
 								if let index = workItemQueues[priority]?.index(of: item) {
 									workItemQueues[priority]!.remove(at: index)
 									removed = true
 								}
 							})
-							if ( !removed ) {
-								NSLog("failed at brute removal of \(workItem.uid) from workItemQueues")
+						}
+						if ( !removed ) {
+							// This is pretty common.  It's okay.  It happens because the item is currently being executed.
+							NSLog("failed to removal \(workItem.uid) from workItemQueues")
+						}
+					}
+
+					if ( removed && 0 == item.results.count ) {
+						// If we got it out of the workItemQueues and nothing has been produced from it, also remove it from items since it will just stay empty.
+						itemsAccessQueue.async {
+							// Double check that it didn't get recreated before we got here.
+							if ( nil == item.workItem && 0 == item.results.count ) {
+								self.items[identity] = nil
 							}
 						}
 					}
