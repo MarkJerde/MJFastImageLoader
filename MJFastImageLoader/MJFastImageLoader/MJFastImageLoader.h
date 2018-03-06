@@ -1,5 +1,5 @@
 //
-//  MJFastImageLoader.h
+//  FastImageLoader.h
 //  MJFastImageLoader
 //
 //  Created by Mark Jerde on 2/19/18.

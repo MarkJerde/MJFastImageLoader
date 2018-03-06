@@ -1,5 +1,5 @@
 //
-//  MJFastImageLoader.swift
+//  FastImageLoader.swift
 //  MJFastImageLoader
 //
 //  Created by Mark Jerde on 2/19/18.
@@ -29,13 +29,13 @@
 import Foundation
 
 /// An image processing mechanism to provide faster image rendering of large images into UIImageView for improved user experience.
-public class MJFastImageLoader {
+public class FastImageLoader {
 
 	// MARK: Public Instantiation and Access
 
 	// Allow a singleton, for those who prefer that pattern
 	/// Returns the shared fast image loader.
-	public static let shared = MJFastImageLoader()
+	public static let shared = FastImageLoader()
 
 	// Allow instance use, for those who prefer that pattern
 	public init() {
@@ -70,7 +70,7 @@ public class MJFastImageLoader {
 		if ( limit < self.criticalProcessingConcurrencyLimit ) {
 			// Adjust down
 			// Go async so we don't block the caller.  Use our own special queue to not block anything else.
-			DispatchQueue(label: "MJFastImageLoader.concurrencyAdjustQueue").async {
+			DispatchQueue(label: "FastImageLoader.concurrencyAdjustQueue").async {
 				repeat {
 					self.criticalProcessingDispatchQueueSemaphore.wait()
 					self.criticalProcessingConcurrencyLimit -= 1
@@ -220,7 +220,7 @@ public class MJFastImageLoader {
 	///   - image: The image to retrieve render for.
 	///   - notification: The notification to register with that image.
 	/// - Returns: Rendered image.
-	public func image(image: Data, notification: MJFastImageLoaderNotification?) -> UIImage? {
+	public func image(image: Data, notification: FastImageLoaderNotification?) -> UIImage? {
 		print("lookup")
 		let identity = DataIdentity(data: image)
 		var item:LoaderItem? = nil
@@ -642,7 +642,7 @@ public class MJFastImageLoader {
 	/// The identities of the items in the loader, sorted in order of increasingly-recent use.
 	private var leastRecentlyUsed:[DataIdentity] = []
 	/// The GCD queue for all access to items and leastRecentlyUsed.
-	private let itemsAccessQueue = DispatchQueue(label: "MJFastImageLoader.itemsAccessQueue")
+	private let itemsAccessQueue = DispatchQueue(label: "FastImageLoader.itemsAccessQueue")
 
 	/// A pessimistic estimate of the volume of memory held by images in the loader.
 	private var maxResultsVolumeBytes = 0
@@ -657,13 +657,13 @@ public class MJFastImageLoader {
 	private let noncriticalProcessingAllowedSemaphore = DispatchSemaphore(value: 1)
 
 	/// The semaphore used in one place to make critical processing semi-concurrent and non-blocking.
-	private let criticalProcessingDispatchQueue = DispatchQueue(label: "MJFastImageLoader.criticalProcessingDispatchQueue")
+	private let criticalProcessingDispatchQueue = DispatchQueue(label: "FastImageLoader.criticalProcessingDispatchQueue")
 
 	/// The semaphore used in one place to make critical processing concurrent and non-blocking.
-	private let criticalProcessingWorkQueue = DispatchQueue(label: "MJFastImageLoader.criticalProcessingQueue", qos: .userInitiated, attributes: .concurrent)
+	private let criticalProcessingWorkQueue = DispatchQueue(label: "FastImageLoader.criticalProcessingQueue", qos: .userInitiated, attributes: .concurrent)
 
 	/// The semaphore used in one place to make non-critical processing non-concurrent and non-blocking.
-	private let processingQueue = DispatchQueue(label: "MJFastImageLoader.processingQueue")
+	private let processingQueue = DispatchQueue(label: "FastImageLoader.processingQueue")
 
 	// All access to workItemQueues, workItemQueuesHasNoCritical, and criticalProcessingActiveCount is thread-safe via workItemQueueDispatchQueue
 	/// The lists of items needing processing grouped by priority.
@@ -673,9 +673,9 @@ public class MJFastImageLoader {
 	/// The current number of critical items in processing.
 	private var criticalProcessingActiveCount = 0
 	/// The GCD queue for all access to workItemQueues, workItemQueuesHasNoCritical, and criticalProcessingActiveCount.
-	private let workItemQueueDispatchQueue = DispatchQueue(label: "MJFastImageLoader.workItemQueueDispatchQueue")
+	private let workItemQueueDispatchQueue = DispatchQueue(label: "FastImageLoader.workItemQueueDispatchQueue")
 
 	/// The GCD queue to ensure serialization of quota compliance work.
-	private let quotaRecoveryDispatchQueue = DispatchQueue(label: "MJFastImageLoader.quotaRecoveryDispatchQueue")
+	private let quotaRecoveryDispatchQueue = DispatchQueue(label: "FastImageLoader.quotaRecoveryDispatchQueue")
 
 }

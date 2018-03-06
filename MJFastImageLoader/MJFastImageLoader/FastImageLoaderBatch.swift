@@ -1,5 +1,5 @@
 //
-//  MJFastImageLoaderBatch.swift
+//  FastImageLoaderBatch.swift
 //  MJFastImageLoader
 //
 //  Created by Mark Jerde on 2/28/18.
@@ -29,10 +29,10 @@
 import Foundation
 
 /// A queueing mechanism to improve user experience by grouping up to N updates that occur within a time limit.
-open class MJFastImageLoaderBatch {
+open class FastImageLoaderBatch {
 	// Allow a singleton, for those who prefer that pattern
 	/// Returns the shared batch.
-	public static let shared = MJFastImageLoaderBatch()
+	public static let shared = FastImageLoaderBatch()
 
 	/// The maximum number of notifications to enqueue before notifying.
 	public var batchUpdateQuantityLimit = 1
@@ -40,15 +40,15 @@ open class MJFastImageLoaderBatch {
 	public var batchUpdateTimeLimit = 0.2
 
 	/// The queued notifications.
-	private var notifications:[MJFastImageLoaderNotification] = []
+	private var notifications:[FastImageLoaderNotification] = []
 	/// The images for the queued notifications.
 	private var images:[UIImage] = []
 	/// The GCD queue providing serialized accumulation.
-	private let queue = DispatchQueue(label: "MJFastImageLoaderBatch.queue")
+	private let queue = DispatchQueue(label: "FastImageLoaderBatch.queue")
 	/// The dispatch work item that will ensure the time limit.
 	private var timeLimitWorkItem:DispatchWorkItem? = nil
 
-	func queueNotifyEvent(image: UIImage, notification: MJFastImageLoaderNotification) {
+	func queueNotifyEvent(image: UIImage, notification: FastImageLoaderNotification) {
 		// fixme - This isn't blocking a UI thread, but it would still be good to evalute sync vs async for this method.
 		queue.sync {
 			if let index = notifications.index(of: notification) {

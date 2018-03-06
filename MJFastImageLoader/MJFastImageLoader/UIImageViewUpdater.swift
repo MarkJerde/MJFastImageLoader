@@ -28,14 +28,14 @@
 
 import Foundation
 
-/// A notification mechanism that provides image updates from MJFastImageLoader to a UIImageView.
-open class UIImageViewUpdater : MJFastImageLoaderNotification {
+/// A notification mechanism that provides image updates from FastImageLoader to a UIImageView.
+open class UIImageViewUpdater : FastImageLoaderNotification {
 	/// Creates an updater object updating the provided imageView per the provided batch.
 	///
 	/// - Parameters:
 	///   - imageView: The UIImageView to provide images to.
 	///   - batch: The batch to group updates with if provided.
-	public init(imageView: UIImageView, batch: MJFastImageLoaderBatch?) {
+	public init(imageView: UIImageView, batch: FastImageLoaderBatch?) {
 		self.imageView = imageView
 		super.init(batch: batch)
 	}

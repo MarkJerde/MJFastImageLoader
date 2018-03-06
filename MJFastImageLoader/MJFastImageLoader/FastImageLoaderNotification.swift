@@ -1,5 +1,5 @@
 //
-//  MJFastImageLoaderNotification.swift
+//  FastImageLoaderNotification.swift
 //  MJFastImageLoader
 //
 //  Created by Mark Jerde on 2/28/18.
@@ -28,21 +28,21 @@
 
 import Foundation
 
-open class MJFastImageLoaderNotification: Equatable {
+open class FastImageLoaderNotification: Equatable {
 	// Use a linked list because the most likely cases will be zero or one node, and multi-node won't involve searching.
 	/// The notification following this one.
-	var next:MJFastImageLoaderNotification? = nil
+	var next:FastImageLoaderNotification? = nil
 	/// The state of having been cancelled.
 	var cancelled = false
 	/// The work item which should be informed if this notification is cancelled.
 	var workItem:WorkItem? = nil
 	/// The batch this notification is part of.
-	private let batch:MJFastImageLoaderBatch?
+	private let batch:FastImageLoaderBatch?
 
 	/// Creates a notification coordinating with the provided batch.
 	///
 	/// - Parameter batch: The batch to coordinate with if desired.
-	public init(batch: MJFastImageLoaderBatch?) {
+	public init(batch: FastImageLoaderBatch?) {
 		self.batch = batch
 	}
 
@@ -68,7 +68,7 @@ open class MJFastImageLoaderNotification: Equatable {
 		cancelled = true
 		_ = workItem?.release() // for our retain
 		workItem = nil
-		// fixme - if release brings it down to zero it should be cleaned up in MJFastImageLoader
+		// fixme - if release brings it down to zero it should be cleaned up in FastImageLoader
 	}
 
 	/// Responds with the equality of two notifications.
@@ -77,7 +77,7 @@ open class MJFastImageLoaderNotification: Equatable {
 	///   - lhs: A notification to check for equality.
 	///   - rhs: A notification to check for equality.
 	/// - Returns: True if both are the same instance.  False if they are not the same instance even if their content is the same.
-	public static func == (lhs: MJFastImageLoaderNotification, rhs: MJFastImageLoaderNotification) -> Bool {
+	public static func == (lhs: FastImageLoaderNotification, rhs: FastImageLoaderNotification) -> Bool {
 		return lhs === rhs
 	}
 }

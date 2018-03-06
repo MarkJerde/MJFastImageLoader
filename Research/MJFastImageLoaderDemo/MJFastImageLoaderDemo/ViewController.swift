@@ -113,7 +113,7 @@ class ViewController: UIViewController {
 		stepButton.isEnabled = false
 		stopButton.isEnabled = false
 
-		MJFastImageLoader.shared.setCriticalProcessingConcurrencyLimit(limit: ProcessInfo.processInfo.activeProcessorCount)
+		FastImageLoader.shared.setCriticalProcessingConcurrencyLimit(limit: ProcessInfo.processInfo.activeProcessorCount)
 
 		self.startTest()
 	}
@@ -124,7 +124,7 @@ class ViewController: UIViewController {
 		view.endEditing(true)
 	}
 
-	let testQueue = DispatchQueue(label: "MJFastImageLoaderDemo.testQueue")
+	let testQueue = DispatchQueue(label: "FastImageLoaderDemo.testQueue")
 
 
 	override func didReceiveMemoryWarning() {
@@ -167,7 +167,7 @@ class ViewController: UIViewController {
 
 	@IBAction func changeThumbPx(_ sender: UITextField) {
 		if let value = sender.text {
-			MJFastImageLoader.shared.thumbnailPixels = Float(value)!
+			FastImageLoader.shared.thumbnailPixels = Float(value)!
 		}
 	}
 
@@ -185,14 +185,14 @@ class ViewController: UIViewController {
 		// Clear data
 		imagesSet = 0
 		cacheHits = 0
-		MJFastImageLoader.wasteCount = 0
+		FastImageLoader.wasteCount = 0
 		failed = false
 
 		// Clear the cache
-		MJFastImageLoader.shared.flush()
+		FastImageLoader.shared.flush()
 
 		// Configure for simultaneous burst display of content
-		MJFastImageLoaderBatch.shared.batchUpdateQuantityLimit = 6
+		FastImageLoaderBatch.shared.batchUpdateQuantityLimit = 6
 		
 		// Blank out all images
 		imageViews.forEach({ (imageView) in
@@ -212,7 +212,7 @@ class ViewController: UIViewController {
 			// Start auto activity in three seconds
 			self.testQueue.asyncAfter(deadline: .now() + .seconds(3), execute: {
 				// Configure for rapid rolling display of content
-				MJFastImageLoaderBatch.shared.batchUpdateQuantityLimit = 1
+				FastImageLoaderBatch.shared.batchUpdateQuantityLimit = 1
 
 				self.autoRefresh()
 			})
@@ -226,12 +226,12 @@ class ViewController: UIViewController {
 		{
 			if ( failed ) {
 				if ( !failStatusLock ) {
-					status = "Failed with Set \(imagesSet) Hit \(cacheHits) Waste \(MJFastImageLoader.wasteCount)"
+					status = "Failed with Set \(imagesSet) Hit \(cacheHits) Waste \(FastImageLoader.wasteCount)"
 					failStatusLock = true
 				}
 			}
 			else {
-				status = "Set \(imagesSet) Hit \(cacheHits) Waste \(MJFastImageLoader.wasteCount)"
+				status = "Set \(imagesSet) Hit \(cacheHits) Waste \(FastImageLoader.wasteCount)"
 				failStatusLock = false
 			}
 		}
@@ -284,7 +284,7 @@ class ViewController: UIViewController {
 						self.imageUpdaters[imageIndex] = nil
 					}
 					if let data = self.imageDatasInUse[imageIndex] {
-						MJFastImageLoader.shared.cancel(image: data)
+						FastImageLoader.shared.cancel(image: data)
 						self.imageDatasInUse[imageIndex] = nil
 					}
 
@@ -305,8 +305,8 @@ class ViewController: UIViewController {
 	// fastSlowMainQueue is a mechanism to prioritize quick operations in bursts between slow operations.
 	var mainQueueFastItems:[DispatchWorkItem] = []
 	var mainQueueSlowItems:[DispatchWorkItem] = []
-	let fastSlowMainListQueue = DispatchQueue(label: "MJFastImageLoaderDemo.fastSlowMainListQueue")
-	let fastSlowMainExecQueue = DispatchQueue(label: "MJFastImageLoaderDemo.fastSlowMainExecQueue")
+	let fastSlowMainListQueue = DispatchQueue(label: "FastImageLoaderDemo.fastSlowMainListQueue")
+	let fastSlowMainExecQueue = DispatchQueue(label: "FastImageLoaderDemo.fastSlowMainExecQueue")
 	func doFastSlowMainQueue( item: DispatchWorkItem, fast: Bool ) {
 		if ( !runTooFastToKeepUp ) {
 			item.perform()
@@ -349,20 +349,20 @@ class ViewController: UIViewController {
 			imageUpdaters[imageIndex] = nil
 		}
 		if let data = imageDatasInUse[imageIndex] {
-			MJFastImageLoader.shared.cancel(image: data)
+			FastImageLoader.shared.cancel(image: data)
 			imageDatasInUse[imageIndex] = nil
 		}
 		let data = imageDatas[imageDataIndex % imageDatas.count]
 		imageDataIndex += 1
 		if ( enabled )
 		{
-			_ = MJFastImageLoader.shared.enqueue(image: data, priority: .critical)
+			_ = FastImageLoader.shared.enqueue(image: data, priority: .critical)
 			DispatchQueue.main.sync {
 				print("do set image \(imageIndex) from index \(imageDatas.index(of: data))")
-				let updater = UIImageViewUpdater(imageView: imgView, batch: MJFastImageLoaderBatch.shared)
+				let updater = UIImageViewUpdater(imageView: imgView, batch: FastImageLoaderBatch.shared)
 				imageDatasInUse[imageIndex] = data
 				imageUpdaters[imageIndex] = updater
-				imgView.image = MJFastImageLoader.shared.image(image: data, notification: updater)
+				imgView.image = FastImageLoader.shared.image(image: data, notification: updater)
 				if ( nil != imgView.image )
 				{
 					print("non nil image")
@@ -469,9 +469,9 @@ class ViewController: UIViewController {
 			/*DispatchQueue.main.sync {
 				self.imageView.backgroundColor = UIColor.black
 			}
-			MJFastImageLoader.shared.enqueue(image: data, priority: .critical)
+			FastImageLoader.shared.enqueue(image: data, priority: .critical)
 			DispatchQueue.main.sync {
-				self.imageView.image = MJFastImageLoader.shared.image(image: data, notification: UIImageViewUpdater(imageView: self.imageView))
+				self.imageView.image = FastImageLoader.shared.image(image: data, notification: UIImageViewUpdater(imageView: self.imageView))
 			}*/
 		}
 	}
@@ -518,10 +518,10 @@ class ViewController: UIViewController {
 				print("End of code. The image will continue downloading in the background and it will be loaded when it ends.")
 			}
 
-			if ( self.imageDatas.count < MJFastImageLoader.shared.maximumCachedImages * 2
-				&& self.imageDatas.count < MJFastImageLoader.shared.maximumCachedBytes * 2 / 60000000 ) {
+			if ( self.imageDatas.count < FastImageLoader.shared.maximumCachedImages * 2
+				&& self.imageDatas.count < FastImageLoader.shared.maximumCachedBytes * 2 / 60000000 ) {
 				// If we don't have enough images to kick things out of cache before we come back to them, set this flag to avoid using cache.  I'm testing with images that use up to 60 MB of RAM, so use that to estimate potential memory load per cache quota.
-				MJFastImageLoader.shared.ignoreCacheForTest = true
+				FastImageLoader.shared.ignoreCacheForTest = true
 			}
 
 			DispatchQueue.main.sync {

@@ -7,9 +7,9 @@
 //
 
 import XCTest
-@testable import MJFastImageLoader
+@testable import FastImageLoader
 
-class MJFastImageLoaderTests: XCTestCase {
+class FastImageLoaderTests: XCTestCase {
     
     override func setUp() {
         super.setUp()

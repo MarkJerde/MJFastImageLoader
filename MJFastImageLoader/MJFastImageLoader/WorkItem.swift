@@ -36,13 +36,13 @@ class WorkItem : Equatable {
 	///   - data: The data to processs.
 	///   - uid: The uid of this data to process.
 	///   - basePriority: The priority at which it should be processed.
-	init(data: Data, uid: Int, basePriority: MJFastImageLoader.Priority) {
+	init(data: Data, uid: Int, basePriority: FastImageLoader.Priority) {
 		self.data = data
 		self.uid = uid
 		self.basePriority = basePriority
 
 		// Fix any defect in priority being lower than minimum, critical being lowest numbered.
-		if ( Decimal(self.basePriority.rawValue) < Decimal(MJFastImageLoader.Priority.critical.rawValue) ) {
+		if ( Decimal(self.basePriority.rawValue) < Decimal(FastImageLoader.Priority.critical.rawValue) ) {
 			self.basePriority = .critical
 		}
 	}
@@ -55,7 +55,7 @@ class WorkItem : Equatable {
 	}
 
 	/// The base priority to work from.
-	var basePriority:MJFastImageLoader.Priority
+	var basePriority:FastImageLoader.Priority
 	/// The uid of the data.
 	let uid:Int
 	/// The state of cancellation.
@@ -63,7 +63,7 @@ class WorkItem : Equatable {
 	/// The state of having been forced out by quota limits.
 	var isForcedOut = false
 	/// The notification(s) to inform when renders complete.
-	var notification:MJFastImageLoaderNotification? = nil
+	var notification:FastImageLoaderNotification? = nil
 	/// The most recent rendering.
 	var currentImage:UIImage? = nil
 
@@ -81,7 +81,7 @@ class WorkItem : Equatable {
 	// MARK: Counting interested parties
 
 	/// The GCD queue to provide thread-safe access to interest retention.
-	private static let retainQueue = DispatchQueue(label: "MJFastImageLoader.workItemRetention")
+	private static let retainQueue = DispatchQueue(label: "FastImageLoader.workItemRetention")
 	/// The current number of interested parties.
 	var retainCount = 1
 
@@ -220,12 +220,12 @@ class WorkItem : Equatable {
 	///   - notification: The notification to start with.
 	///   - image: The image that has been rendered.
 	///   - previous: The previous notification in the linked list.
-	private func notify(notification: MJFastImageLoaderNotification?, image: UIImage, previous: MJFastImageLoaderNotification?) {
+	private func notify(notification: FastImageLoaderNotification?, image: UIImage, previous: FastImageLoaderNotification?) {
 		// Handle the linked list ourselves so it is not vulnerable to breakage by implementors of items in it
 		if ( nil == notification && nil == previous )
 		{
 			print("old nobody cares")
-			MJFastImageLoader.wasteCount += 1
+			FastImageLoader.wasteCount += 1
 		}
 		if let notification = notification {
 			if ( notification.cancelled ) {
