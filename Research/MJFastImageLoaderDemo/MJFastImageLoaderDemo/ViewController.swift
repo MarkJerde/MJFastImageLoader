@@ -525,8 +525,9 @@ class ViewController: UIViewController {
 				print("End of code. The image will continue downloading in the background and it will be loaded when it ends.")
 			}
 
-			if ( self.imageDatas.count < MJFastImageLoader.shared.maximumCachedImages * 2 ) {
-				// If we don't have enough images to kick things out of cache before we come back to them, set this flag to avoid using cache
+			if ( self.imageDatas.count < MJFastImageLoader.shared.maximumCachedImages * 2
+				&& self.imageDatas.count < MJFastImageLoader.shared.maximumCachedBytes * 2 / 60000000 ) {
+				// If we don't have enough images to kick things out of cache before we come back to them, set this flag to avoid using cache.  I'm testing with images that use up to 60 MB of RAM, so use that to estimate potential memory load per cache quota.
 				MJFastImageLoader.shared.ignoreCacheForTest = true
 			}
 
