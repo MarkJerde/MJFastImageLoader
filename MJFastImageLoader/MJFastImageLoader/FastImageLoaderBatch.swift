@@ -55,14 +55,18 @@ open class FastImageLoaderBatch {
 	func queueNotifyEvent(image: UIImage, notification: FastImageLoaderNotification) {
 		// TODO: This isn't blocking a UI thread, but it would still be good to evalute sync vs async for this method.
 		queue.sync {
+			// Check if we already have a pending image for that notification.
 			if let index = notifications.index(of: notification) {
+				// We do, so update the image.
 				images[index] = image
 			}
 			else {
+				// We don't, so add one and its image.
 				notifications.append(notification)
 				images.append(image)
 			}
 
+			// Count how many non-cancelled notifications we have.  Ignore cancelled since nobody cares about them.
 			var nonCancelledCount = 0
 			for i in 0..<notifications.count {
 				if ( !notifications[i].cancelled ) {
@@ -70,6 +74,7 @@ open class FastImageLoaderBatch {
 				}
 			}
 
+			// See what we should do.
 			let first = 1 == nonCancelledCount
 			let hitQuota = nonCancelledCount >= batchUpdateQuantityLimit
 			if ( first ) {
@@ -79,19 +84,19 @@ open class FastImageLoaderBatch {
 			}
 			if ( first || hitQuota ) {
 				let timeout:Double = hitQuota ? 0.0 : batchUpdateTimeLimit
-				//let timeout2:Int = hitQuota ? 0 : 5
 
 				// Cancel the previous timeLimitWorkItem if there were one.
 				timeLimitWorkItem?.cancel()
 
+				// Create work item to do after timeout.
 				timeLimitWorkItem = DispatchWorkItem {
 					// Cancel the timeout, if there were one
 					self.timeLimitWorkItem?.cancel()
 					self.timeLimitWorkItem = nil
 
-					NSLog("notify \(self.notifications.count) for \(hitQuota ? "quota" : "timeout")")
+					DLog("notify \(self.notifications.count) for \(hitQuota ? "quota" : "timeout")")
 
-					// Do our work
+					// Do our queued work
 					DispatchQueue.main.sync {
 						// Use the main queue so that batches will draw as one.  Yes, this matters.
 						for i in 0..<self.notifications.count {
@@ -103,6 +108,8 @@ open class FastImageLoaderBatch {
 					self.notifications = []
 					self.images = []
 				}
+
+				// Submit work item to be done.
 				queue.asyncAfter(deadline: .now() + timeout, execute: timeLimitWorkItem!)
 			}
 		}

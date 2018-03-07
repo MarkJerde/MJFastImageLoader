@@ -165,8 +165,7 @@ public class FastImageLoader {
 			}
 
 			if let item = item {
-				if let workItem = item.workItem
-				{
+				if let workItem = item.workItem {
 					// The item is still in active processing, so just join in.
 					workItem.retain()
 
@@ -182,8 +181,7 @@ public class FastImageLoader {
 					}
 					return
 				}
-				else if ( item.results.count > 0 )
-				{
+				else if ( item.results.count > 0 ) {
 					// We have results but no work item, so we must be fully formed.
 					return
 				}
@@ -275,8 +273,7 @@ public class FastImageLoader {
 					}
 				}
 			}
-			else if ( item.results.count == 0 )
-			{
+			else if ( item.results.count == 0 ) {
 				// We found an item without a workItem or results, which shouldn't happen.
 				fatalError("Cancelled before processing anything")
 			}
@@ -639,8 +636,7 @@ public class FastImageLoader {
 	private func obtainAndExecuteWorkItem( critical:Bool ) {
 		if let item = self.nextWorkItem( critical: critical ) {
 			if let workItem = item.workItem {
-				if ( workItem.retainCount <= 0 )
-				{
+				if ( workItem.retainCount <= 0 ) {
 					// We were able to get an item with a workItem, but it was an item nobody cared about, so skip it.
 					return
 				}
@@ -753,7 +749,7 @@ public class FastImageLoader {
 	/// The last set concurrency limit, so we know how much to adjust by in what direction if a change is requested, since we can't query the semaphore for maximum value (since it doesn't even have a configurable maximum that it would allow us to put in).
 	private var criticalProcessingConcurrencyLimit = 12
 
-	
+
 	// MARK: Private Variables - Storage
 
 	/// The next value to use for uid.

@@ -31,7 +31,7 @@ import Foundation
 /// A notification mechanism that provides image updates from FastImageLoader to a UIImageView.
 open class UIImageViewUpdater : FastImageLoaderNotification {
 	// MARK: - Public Interfaces
-	
+
 	/// Creates an updater object updating the provided imageView per the provided batch.
 	///
 	/// - Parameters:
@@ -48,7 +48,7 @@ open class UIImageViewUpdater : FastImageLoaderNotification {
 	///
 	/// - Parameter image: The image that has been rendered.
 	override open func notify(image: UIImage) {
-		print("notify")
+		// Ensure we are on the main thread.  Support either getting ourselves there or already being there.
 		if ( Thread.isMainThread ) {
 			self.updateImage(image: image)
 		}
@@ -65,7 +65,7 @@ open class UIImageViewUpdater : FastImageLoaderNotification {
 	///
 	/// - Parameter image: The image to use.
 	private func updateImage(image: UIImage) {
-		print("update \(String(describing: imageView.accessibilityHint)) \(Date().timeIntervalSince1970)")
+		DLog("update \(String(describing: imageView.accessibilityHint)) \(Date().timeIntervalSince1970)")
 		imageView.image = image
 	}
 

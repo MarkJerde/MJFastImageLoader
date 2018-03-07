@@ -71,7 +71,7 @@ class WorkItem : Equatable {
 	private(set) var state:Int = 0
 	/// The state of having completed the final possible render (full resolution).
 	private(set) var final = false
-	
+
 	/// The data to process.
 	private let data:Data
 	/// The state of having already rendered at least one image.
@@ -86,12 +86,16 @@ class WorkItem : Equatable {
 	var retainCount = 1
 
 	/// Indicates that there is an additional party interested in the results of this work.
+	///
+	/// Note: This has nothing to do with MRR reference counting.  This method name may be inappropriate after the old MRR way of doing things, but the name fits until something better comes along.
 	func retain () {
 		WorkItem.retainQueue.sync {
 			self.retainCount += 1
 		}
 	}
 	/// Indicates that their is one fewer party interested in the results of this work.
+	///
+	/// Note: This has nothing to do with MRR reference counting.  This method name may be inappropriate after the old MRR way of doing things, but the name fits until something better comes along.
 	///
 	/// - Returns: True if there are still interested parties, false otherwise.
 	func release () -> Bool {
@@ -114,7 +118,7 @@ class WorkItem : Equatable {
 		let thumbnailMaxPixels = thumbnailPixels
 		let cgThumbnailMaxPixels = CGFloat(thumbnailPixels)
 
-		print("state \(state)")
+		DLog("state \(state)")
 		switch state {
 		case 0:
 			// Fastest first.  Use thumbnail if present.
@@ -129,16 +133,14 @@ class WorkItem : Equatable {
 				kCGImageSourceThumbnailMaxPixelSize as String: thumbnailMaxPixels as NSNumber
 				] as CFDictionary
 
-			if let thumbnail = CGImageSourceCreateThumbnailAtIndex(imageSource!, 0, options)
-			{
+			if let thumbnail = CGImageSourceCreateThumbnailAtIndex(imageSource!, 0, options) {
 				//let result = UIImage(cgImage: thumbnail)
 				let result = TrackedUIImage(cgImage: thumbnail)
 				result.uid = self.uid
 				result.thumb = true
 
 				if ( result.size.width >= cgThumbnailMaxPixels
-					|| result.size.height >= cgThumbnailMaxPixels )
-				{
+					|| result.size.height >= cgThumbnailMaxPixels ) {
 					state += 1
 				}
 
@@ -163,8 +165,7 @@ class WorkItem : Equatable {
 				kCGImageSourceThumbnailMaxPixelSize as String: thumbnailMaxPixels as NSNumber
 				] as CFDictionary
 
-			if let thumbnail = CGImageSourceCreateThumbnailAtIndex(imageSource!, 0, options)
-			{
+			if let thumbnail = CGImageSourceCreateThumbnailAtIndex(imageSource!, 0, options) {
 				let result = UIImage(cgImage: thumbnail)
 				currentImage = result
 				haveImage = true
@@ -182,8 +183,7 @@ class WorkItem : Equatable {
 			currentImage = nil // Since we won't need this after this stage.
 
 			if let image = UIImage(data: data) {
-				if ( image.size == previousImage?.size )
-				{
+				if ( image.size == previousImage?.size ) {
 					// Prior call produced full-size image, so stop now.
 					return nil
 				}
@@ -196,8 +196,7 @@ class WorkItem : Equatable {
 				resultImage?.uid = self.uid
 				resultImage?.thumb = false
 
-				if let resultImage = resultImage
-				{
+				if let resultImage = resultImage {
 					notify(notification: notification, image: resultImage, previous: nil)
 				}
 				if ( nil != resultImage ) {
@@ -222,11 +221,11 @@ class WorkItem : Equatable {
 	///   - previous: The previous notification in the linked list.
 	private func notify(notification: FastImageLoaderNotification?, image: UIImage, previous: FastImageLoaderNotification?) {
 		// Handle the linked list ourselves so it is not vulnerable to breakage by implementors of items in it
-		if ( nil == notification && nil == previous )
-		{
-			print("old nobody cares")
+		if ( nil == notification && nil == previous ) {
+			// Update debug metric.
 			FastImageLoader.wasteCount += 1
 		}
+
 		if let notification = notification {
 			if ( notification.cancelled ) {
 				// Clear out cancelled item
@@ -238,6 +237,7 @@ class WorkItem : Equatable {
 				}
 			}
 			else {
+				// Initiate notification.
 				notification.queueNotifyEvent(image: image)
 			}
 
@@ -256,11 +256,11 @@ class WorkItem : Equatable {
 		return lhs === rhs
 	}
 
-	
+
 	// MARK: Diagnostic mechanisms
 
 	// Debug / diagnostic class which can be used in place of UIImage to provide QoS data for memory recovery.
-	// This was created to aid in identifying a pseudo-memory-leak which could have been caused by excess references but which turned out to be a side-effect of GCD being kept 100% busy.  Provides NSLog reporting intended and actual time of deinit and milliseconds delta between them.
+	// This was created to aid in identifying a pseudo-memory-leak which could have been caused by excess references but which turned out to be a side-effect of GCD being kept 100% busy.  Provides DLog reporting intended and actual time of deinit and milliseconds delta between them.
 	/// A diagnostic mechanism to provide a UIImage that monitors the timeliness of its removal from memory.
 	class TrackedUIImage : UIImage {
 		// Details the user can set if they see need.
@@ -282,14 +282,14 @@ class WorkItem : Equatable {
 			deinitTime = Date()
 		}
 
-		/// Calculates bytes estimate and NSLogs some info.
+		/// Calculates bytes estimate and DLogs some info.
 		///
 		/// - Parameters:
 		///   - event: Description of what event is happening.
 		///   - extra: Extra description of state to include.
 		private func log(event:String, extra:String) {
 			let bytesThis = cgImage!.height * cgImage!.bytesPerRow
-			NSLog("TrackedUIImage \(event) \(uid) \(thumb ? "thumb" : "final") \(Unmanaged.passUnretained(self).toOpaque()) \(extra)for \(bytesThis) bytes")
+			DLog("TrackedUIImage \(event) \(uid) \(thumb ? "thumb" : "final") \(Unmanaged.passUnretained(self).toOpaque()) \(extra)for \(bytesThis) bytes")
 		}
 
 		// Report some identifying information and the delta in milliseconds since intention to deinit.

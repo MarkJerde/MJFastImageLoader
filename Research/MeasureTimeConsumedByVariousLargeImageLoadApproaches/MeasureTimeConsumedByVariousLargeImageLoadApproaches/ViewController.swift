@@ -50,7 +50,7 @@ class ViewController: UIViewController {
 
 	var images:[UIImage] = []
 	var timings:[Double] = []
-	
+
 	// MARK: Standard Overrides
 	override func viewDidLoad() {
 		super.viewDidLoad()

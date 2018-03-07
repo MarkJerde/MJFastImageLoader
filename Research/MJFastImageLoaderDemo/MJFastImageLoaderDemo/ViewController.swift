@@ -193,7 +193,7 @@ class ViewController: UIViewController {
 
 		// Configure for simultaneous burst display of content
 		FastImageLoaderBatch.shared.batchUpdateQuantityLimit = 6
-		
+
 		// Blank out all images
 		imageViews.forEach({ (imageView) in
 			imageView.accessibilityHint = String( describing: imageViews.index(of: imageView) )
@@ -222,8 +222,7 @@ class ViewController: UIViewController {
 	func setStatus( force:Bool ) {
 		var status:String? = nil
 
-		if ( force || 0 == self.imagesSet % 6 )
-		{
+		if ( force || 0 == self.imagesSet % 6 ) {
 			if ( failed ) {
 				if ( !failStatusLock ) {
 					status = "Failed with Set \(imagesSet) Hit \(cacheHits) Waste \(FastImageLoader.wasteCount)"
@@ -355,8 +354,7 @@ class ViewController: UIViewController {
 		}
 		let data = imageDatas[imageDataIndex % imageDatas.count]
 		imageDataIndex += 1
-		if ( enabled )
-		{
+		if ( enabled ) {
 			FastImageLoader.shared.enqueue(image: data, priority: .critical)
 			DispatchQueue.main.sync {
 				print("do set image \(imageIndex) from index \(String(describing: imageDatas.index(of: data)))")
@@ -364,15 +362,13 @@ class ViewController: UIViewController {
 				imageDatasInUse[imageIndex] = data
 				imageUpdaters[imageIndex] = updater
 				imgView.image = FastImageLoader.shared.image(image: data, notification: updater)
-				if ( nil != imgView.image )
-				{
+				if ( nil != imgView.image ) {
 					print("non nil image")
 					cacheHits += 1
 				}
 			}
 		}
-		else
-		{
+		else {
 			switch disabledModeApproach {
 			case 1:
 				// http://nshipster.com/image-resizing/
@@ -392,7 +388,7 @@ class ViewController: UIViewController {
 					}
 				}
 				break
-				
+
 			case 2:
 				// http://nshipster.com/image-resizing/
 				if let image = CGImageSourceCreateWithData(data as CFData, nil) {
@@ -508,8 +504,7 @@ class ViewController: UIViewController {
 								self.statusLabel.text = "Downloading image (\(i) of \(imageCount))..."
 							}
 							self.downloadImage(url: url)
-							while ( i > self.imageDatas.count )
-							{
+							while ( i > self.imageDatas.count ) {
 								// Normally a busy-wait would be undesirable, but for a demo to avoid smashing the source server this is good enough.
 								sleep(1)
 							}
