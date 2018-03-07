@@ -622,7 +622,7 @@ public class FastImageLoader {
 				}
 			}
 
-			NSLog("nextWorkItem is \(result?.workItem?.uid)")
+			NSLog("nextWorkItem is \(String(describing: result?.workItem?.uid))")
 		}
 
 		return result

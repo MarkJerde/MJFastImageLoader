@@ -37,7 +37,7 @@ import MJFastImageLoader
 
 // MARK: Sequence Shuffle Extensions
 
-extension MutableCollection where Indices.Iterator.Element == Index {
+extension MutableCollection {
 	/// Shuffles the contents of this collection.
 	mutating func shuffle() {
 		let c = count
@@ -243,6 +243,8 @@ class ViewController: UIViewController {
 		}
 	}
 
+	var random = false
+
 	var nextViewIndex = 0
 	func autoRefresh() {
 		DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1), execute: {
@@ -251,13 +253,12 @@ class ViewController: UIViewController {
 
 		if ( running ) {
 			// Select a random UIImageView and update it
-			let random = false
 			let randomImageView = random
 				? imageViews.shuffled().first!
 				: imageViews[nextViewIndex % imageViews.count]
 			nextViewIndex += 1
 
-			NSLog("Update \(randomImageView.accessibilityHint)")
+			NSLog("Update \(String(describing: randomImageView.accessibilityHint))")
 
 			// Do another one in 100ms, even if we haven't finished this one
 			testQueue.asyncAfter(deadline: .now() + .milliseconds(100), execute: {
@@ -291,13 +292,13 @@ class ViewController: UIViewController {
 					randomImageView.image = nil
 					randomImageView.backgroundColor = UIColor.orange
 				}
-				NSLog("Update blank  \(randomImageView.accessibilityHint)")
+				NSLog("Update blank  \(String(describing: randomImageView.accessibilityHint))")
 			}, fast: true)
 
 			// Put a new image in
 			doFastSlowMainQueue(item: DispatchWorkItem {
 				self.setNewImage(imgView: randomImageView)
-				NSLog("Update done  \(randomImageView.accessibilityHint)")
+				NSLog("Update done  \(String(describing: randomImageView.accessibilityHint))")
 			}, fast: false)
 		}
 	}
@@ -342,7 +343,7 @@ class ViewController: UIViewController {
 
 	func setNewImage( imgView: UIImageView ) {
 		imagesSet += 1
-		print("set image \(imageViews.index(of: imgView)) from index \(imageDataIndex % imageDatas.count)")
+		print("set image \(String(describing: imageViews.index(of: imgView))) from index \(imageDataIndex % imageDatas.count)")
 		let imageIndex = imageViews.index(of: imgView)!
 		if let updater = imageUpdaters[imageIndex] {
 			updater.cancel()
@@ -358,7 +359,7 @@ class ViewController: UIViewController {
 		{
 			FastImageLoader.shared.enqueue(image: data, priority: .critical)
 			DispatchQueue.main.sync {
-				print("do set image \(imageIndex) from index \(imageDatas.index(of: data))")
+				print("do set image \(imageIndex) from index \(String(describing: imageDatas.index(of: data)))")
 				let updater = UIImageViewUpdater(imageView: imgView, batch: FastImageLoaderBatch.shared)
 				imageDatasInUse[imageIndex] = data
 				imageUpdaters[imageIndex] = updater

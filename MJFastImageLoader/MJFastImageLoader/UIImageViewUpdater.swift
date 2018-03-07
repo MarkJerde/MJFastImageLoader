@@ -65,7 +65,7 @@ open class UIImageViewUpdater : FastImageLoaderNotification {
 	///
 	/// - Parameter image: The image to use.
 	private func updateImage(image: UIImage) {
-		print("update \(imageView.accessibilityHint) \(Date().timeIntervalSince1970)")
+		print("update \(String(describing: imageView.accessibilityHint)) \(Date().timeIntervalSince1970)")
 		imageView.image = image
 	}
 
