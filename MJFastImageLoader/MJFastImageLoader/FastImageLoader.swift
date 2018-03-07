@@ -153,15 +153,21 @@ public class FastImageLoader {
 	///   - image: The image to add to the loader.
 	///   - priority: The priority at which to process the image.
 	public func enqueue(image: Data, priority: Priority) {
+		// Turn the large Data into a small DataIdentity.
 		let identity = DataIdentity(data: image)
+
 		if ( !ignoreCacheForTest ) {
 			var item:LoaderItem? = nil
+
+			// Retrieve the item.
 			itemsAccessQueue.sync {
 				item = items[identity]
 			}
+
 			if let item = item {
 				if let workItem = item.workItem
 				{
+					// The item is still in active processing, so just join in.
 					workItem.retain()
 
 					// Increase priority if needed
@@ -170,6 +176,7 @@ public class FastImageLoader {
 					}
 
 					if ( workItem.isCancelled ) {
+						// Since it's cancelled we need to reinitiate its processing.
 						workItem.isCancelled = false
 						enqueueWork(item: item)
 					}
@@ -177,7 +184,7 @@ public class FastImageLoader {
 				}
 				else if ( item.results.count > 0 )
 				{
-					// We have results but no work item, so we must be fully formed
+					// We have results but no work item, so we must be fully formed.
 					return
 				}
 
@@ -185,16 +192,21 @@ public class FastImageLoader {
 			}
 		}
 
+		// Get a uid, simply for debug.
 		let uid = nextUID
 		nextUID += 1
 
+		// Create the item, adding it to the appropriate lists.
 		let item = LoaderItem(workItem: WorkItem(data: image, uid: uid, basePriority: priority))
 		itemsAccessQueue.sync {
 			items[identity] = item
 			leastRecentlyUsed.append(identity)
 		}
+
+		// Initiate work on the item.
 		enqueueWork(item: item)
 
+		// Ensure we aren't over quota.  In this case it would be due to having too many items after creating this new one.
 		checkQuotas()
 	}
 
@@ -203,27 +215,37 @@ public class FastImageLoader {
 	/// - Parameter image: The image to cancel processing for.
 	public func cancel(image: Data) {
 		// TODO: Should this also cancel all notifications for this item?  Otherwise the notification could come back to life if a future enqueue of this data resumes processing.
+
+		// Turn the large Data into a small DataIdentity.
 		let identity = DataIdentity(data: image)
+
 		var item:LoaderItem? = nil
+
+		// Retrieve the item.
 		itemsAccessQueue.sync {
 			item = items[identity]
 		}
+
 		if let item = item {
-			if let workItem = item.workItem
-			{
-				NSLog("cancel \(workItem.uid)")
+			if let workItem = item.workItem {
+				// We found an item with a workItem, so release our interest in the work.
+
 				if ( !workItem.release() ) {
+					// Released resulting in no interested parties, so cancel the work.
+
 					workItem.isCancelled = true
-					NSLog("cancel() workItem \(item.uid)")
 					item.workItem = nil
+
+					// Remove workItem from workItemQueues if we can.  Often it may not be there because it is in active processing, which is okay but when we can remove from workItemQueues it is worth doing.
 					var removed = false
 					workItemQueueDispatchQueue.sync {
+						// Check in the priority level it is expected to be in.
 						if let index = workItemQueues[workItem.priority]?.index(of: item) {
 							workItemQueues[workItem.priority]!.remove(at: index)
 							removed = true
 						}
 						else {
-							NSLog("brute removal of \(workItem.uid) from workItemQueues")
+							// Check all priority levels if it wasn't where expected.
 							workItemQueues.keys.forEach({ (priority) in
 								if let index = workItemQueues[priority]?.index(of: item) {
 									workItemQueues[priority]!.remove(at: index)
@@ -231,16 +253,21 @@ public class FastImageLoader {
 								}
 							})
 						}
-						if ( !removed ) {
+
+						if ( removed ) {
+							// TODO: Determine if we need to check for an empty critical-queue here and release block on non-critical work.
+						}
+						else {
 							// This is pretty common.  It's okay.  It happens because the item is currently being executed.
-							NSLog("failed to removal \(workItem.uid) from workItemQueues")
 						}
 					}
 
 					if ( removed && 0 == item.results.count ) {
 						// If we got it out of the workItemQueues and nothing has been produced from it, also remove it from items since it will just stay empty.
+
 						itemsAccessQueue.async {
 							// Double check that it didn't get recreated before we got here.
+
 							if ( nil == item.workItem && 0 == item.results.count ) {
 								self.items[identity] = nil
 							}
@@ -250,9 +277,12 @@ public class FastImageLoader {
 			}
 			else if ( item.results.count == 0 )
 			{
+				// We found an item without a workItem or results, which shouldn't happen.
 				fatalError("Cancelled before processing anything")
 			}
 		}
+
+		// Nothing to cancel if we found an item with results but no workItem or didn't find an item at all.
 	}
 
 	/// Retrieve any processed form of an image in the loader and registers notification for further versions.
@@ -262,16 +292,20 @@ public class FastImageLoader {
 	///   - notification: The notification to register with that image.
 	/// - Returns: Rendered image.
 	public func image(image: Data, notification: FastImageLoaderNotification?) -> UIImage? {
-		print("lookup")
+		// Turn the large Data into a small DataIdentity.
 		let identity = DataIdentity(data: image)
+
 		var item:LoaderItem? = nil
+
+		// Retrieve the item.
 		itemsAccessQueue.sync {
 			item = items[identity]
 		}
+
 		if let item = item {
-			// Register notification if there is an active work item and we have a notification.
 			if let workItem = item.workItem {
-				print("register \(workItem.uid)")
+				// We found an item with a workItem, so register notification.
+
 				if let notification = notification {
 					// Insert ourselves at the front.
 					notification.next = workItem.notification
@@ -279,7 +313,6 @@ public class FastImageLoader {
 					workItem.retain() // For the notification
 					notification.workItem = workItem
 				}
-				print("registered \(workItem.uid)")
 			}
 
 			// Move to back of LRU since someone asked for it
@@ -294,17 +327,19 @@ public class FastImageLoader {
 			}
 
 			if let max = item.results.keys.max() {
+				// If there is a maximum key, then we have an image we can provide.
 				return item.results[max]
 			}
-			return nil
 		}
+
+		// No image found.
 		return nil
 	}
 
 	/// Removes all content from cache and work queues.
 	public func flush() {
-		print("flush")
 		// TODO: Check for any possible race conditions.  Maybe should stop/flush outstanding work queues and/or put the actions below in their corresponding GCD queues.
+
 		// Stop the queues first
 		workItemQueues = [:]
 		itemsAccessQueue.sync {
@@ -312,10 +347,12 @@ public class FastImageLoader {
 			items.values.forEach { (item) in
 				item.workItem?.retainCount = 0
 			}
+
 			// Get rid of the items
 			items = [:]
 			leastRecentlyUsed = []
 		}
+
 		// Clear the rest
 		maxResultsVolumeBytes = 0
 	}
@@ -343,7 +380,7 @@ public class FastImageLoader {
 
 		let overImageCountLimit = lruCount > maximumCachedImages
 		let overImageBytesLimit = maxResultsVolumeBytes > maximumCachedBytes
-		NSLog("quota check at \(lruCount) and \(maxResultsVolumeBytes)")
+		DLog("quota check at \(lruCount) and \(maxResultsVolumeBytes)")
 
 		if ( (overImageCountLimit || overImageBytesLimit) && !ignoreCacheForTest ) {
 			// Cache limits are incompatible with ignoreCacheForTest.
@@ -351,10 +388,10 @@ public class FastImageLoader {
 			quotaRecoveryDispatchQueue.sync {
 				removeLeastRecentlyUsedItemsToFitQuota(pass: 0, overImageBytesLimit: overImageBytesLimit)
 
-				NSLog("quota recovered to \(leastRecentlyUsed.count) and \(self.maxResultsVolumeBytes)")
+				DLog("quota recovered to \(leastRecentlyUsed.count) and \(self.maxResultsVolumeBytes)")
 			}
 
-			// The memory release will be delayed until GCD gets a chance to breathe.  So suspend the queues for a very short moment to allow time.
+			// The memory release may be delayed until GCD gets a chance to breathe.  So suspend the queues for a very short moment to allow time.
 			processingQueue.suspend()
 			quotaRecoveryDispatchQueue.suspend()
 			itemsAccessQueue.asyncAfter(deadline: .now() + .milliseconds(1), execute: {
@@ -377,48 +414,61 @@ public class FastImageLoader {
 			while ( i < count ) {
 				let lru = leastRecentlyUsed[i]
 				if let item = items[lru] {
+					// We found the next item referenced by the LRU.  Find out if it is suitable to remove.
+					var okayToRemove = false
+
 					let noLongerNeeded = items[lru]?.workItem?.isCancelled ?? true
 					let noLongerRunning = items[lru]?.workItem?.final ?? true
-					var okayToRemove = false
-					switch pass {
-					case 0,2,4:
-						// First / third / fifth pass.  Only those noLongerNeeded with 2+ resolution options in the oldest half.
-						if ( noLongerNeeded
-							&& item.results.count > 1
-							&& i < count / 2 ) {
-							okayToRemove = true
-						}
-						break
 
-					case 1,3,5:
-						// Second / fourth / sixth pass.  Anything noLongerNeeded in the oldest half.
-						if ( noLongerNeeded
-							&& i < count / 2 ) {
-							okayToRemove = true
-						}
-						break
+					if ( leastRecentlyUsed.count > maximumCachedImages
+						&& noLongerNeeded ) {
+						// We are over counted capacity and this isn't needed, so we will remove it.
+						okayToRemove = true
+					}
+					else {
+						// We are not over counted capacity, so be a bit more selective in removal.
 
-					case 6:
-						// Seventh pass.  Only those with 2+ resolution options in the oldest half, but only if it is no longer needed or we need to free memory.
-						if ( (noLongerNeeded || overImageBytesLimit)
-							&& item.results.count > 1
-							&& i < count / 2 ) {
-							okayToRemove = true
-						}
-						break
+						// A long list of criteria for multiple passes looking for stuff to remove is provided so that we will favor removing largest renders from non-oldest items before removing only remaining renders from oldest items.  This preserves the insignificantly large renders for fast future need.  Limit initial actions to oldest half of cache initially, which may shift in subsequent passes as some items are removed entirely.
+						switch pass {
+						case 0,2,4:
+							// First / third / fifth pass.  Only those noLongerNeeded with 2+ resolution options in the oldest half.
+							if ( noLongerNeeded
+								&& item.results.count > 1
+								&& i < count / 2 ) {
+								okayToRemove = true
+							}
+							break
 
-					case 7:
-						// Eighth pass.  Anything the oldest half, but only if it is no longer needed or we need to free memory.
-						if ( (noLongerNeeded || overImageBytesLimit)
-							&& i < count / 2 ) {
-							okayToRemove = true
-						}
-						break
+						case 1,3,5:
+							// Second / fourth / sixth pass.  Anything noLongerNeeded in the oldest half.
+							if ( noLongerNeeded
+								&& i < count / 2 ) {
+								okayToRemove = true
+							}
+							break
 
-					default:
-						// Ninth pass.  Anything at all, but only if it is no longer needed or we need to free memory.
-						okayToRemove = noLongerNeeded || overImageBytesLimit
-						break
+						case 6:
+							// Seventh pass.  Only those with 2+ resolution options in the oldest half, but only if it is no longer needed or we need to free memory.
+							if ( (noLongerNeeded || overImageBytesLimit)
+								&& item.results.count > 1
+								&& i < count / 2 ) {
+								okayToRemove = true
+							}
+							break
+
+						case 7:
+							// Eighth pass.  Anything the oldest half, but only if it is no longer needed or we need to free memory.
+							if ( (noLongerNeeded || overImageBytesLimit)
+								&& i < count / 2 ) {
+								okayToRemove = true
+							}
+							break
+
+						default:
+							// Ninth pass.  Anything at all, but only if it is no longer needed or we need to free memory.
+							okayToRemove = noLongerNeeded || overImageBytesLimit
+							break
+						}
 					}
 
 					if ( okayToRemove ) {
@@ -426,6 +476,7 @@ public class FastImageLoader {
 						let sizes = item.results
 						allImages: while let max = sizes.keys.max() {
 							if let image = sizes[max] {
+								// Adjust our accounting.
 								let bytesThis = image.cgImage!.height * image.cgImage!.bytesPerRow
 								maxResultsVolumeBytes -= bytesThis
 
@@ -451,7 +502,6 @@ public class FastImageLoader {
 							// TODO: Clearing currentImage is just preventative, in case WorkItem doesn't deinit right away.  Make sure it does deinit right away and then remove this
 							item.workItem?.currentImage = nil
 						}
-						NSLog("Remove workItem \(item.uid)")
 						item.workItem = nil
 
 						// If we removed it completely, remove it from items, LRU, and count
@@ -464,11 +514,13 @@ public class FastImageLoader {
 
 						if ( items.count <= maximumCachedImages
 							&& maxResultsVolumeBytes <= maximumCachedBytes ) {
+							// We are back within quota, so we will stop removing things.
 							break
 						}
 					}
 				}
 
+				// Third part of the fabrication of a traditional for-loop
 				i += 1
 			}
 		}
@@ -477,7 +529,7 @@ public class FastImageLoader {
 			|| maxResultsVolumeBytes > maximumCachedBytes)
 			&& leastRecentlyUsed.count > 0
 			&& pass < 8 ) {
-			// Try again with less filtering.
+			// We are still over quota, so try again with less filtering.
 
 			removeLeastRecentlyUsedItemsToFitQuota(pass: pass + 1, overImageBytesLimit: overImageBytesLimit)
 		}
@@ -491,26 +543,32 @@ public class FastImageLoader {
 	/// - Parameter item: The item to enqueue.
 	private func enqueueWork(item: LoaderItem) {
 		if let workItem = item.workItem {
+			// We have a workItem to enqueue, so enqueue it.
+
 			let priority = workItem.priority
 			workItemQueueDispatchQueue.sync {
 				if ( nil == workItemQueues[priority] ) {
+					// Create list for this priority since empty.
 					workItemQueues[priority] = []
 				}
 				workItemQueues[priority]!.append(item)
 
+				// If this item is critical priority, see if we need to block non-critical processing.
 				if ( 1 == priority ) {
 					if let queue = workItemQueues[1] {
 						let haveCritical = queue.count > 0
 						if ( haveCritical && workItemQueuesHasNoCritical ) {
 							workItemQueuesHasNoCritical = false
 							// Nobody else should be holding this
-							NSLog("Taking noncriticalProcessingAllowedSemaphore")
+							DLog("Taking noncriticalProcessingAllowedSemaphore")
 							noncriticalProcessingAllowedSemaphore.wait()
-							NSLog("Took noncriticalProcessingAllowedSemaphore")
+							DLog("Took noncriticalProcessingAllowedSemaphore")
 						}
 					}
 				}
 			}
+
+			// Enqueue execution of the WorkItem, indicating which type of work we added to the queue for proper handling.
 			processWorkItem( critical: 1 == priority )
 		}
 	}
@@ -520,16 +578,19 @@ public class FastImageLoader {
 	/// - Parameter critical: The critical status of the work item which was enqueued and for which this is being called.
 	private func processWorkItem(critical: Bool) {
 		if ( critical ) {
-			self.dispatchCriticalWorkItem()
+			// The caller added a critical item, so dispatch concurrent processing.
+			dispatchCriticalWorkItem()
 		}
 		else {
+			// The caller added a non-critical item, so dispatch non-concurrent processing.
 			processingQueue.async {
-				// Check if we can get the semaphore before starting work, but don't hold it.
-				NSLog("Checking noncriticalProcessingAllowedSemaphore")
+				// Check if non-critical processing is allowed by seeing if we can get the semaphore before starting work, but don't hold it since that is done to prevent non-critical processing.
+				DLog("Checking noncriticalProcessingAllowedSemaphore")
 				self.noncriticalProcessingAllowedSemaphore.wait()
 				self.noncriticalProcessingAllowedSemaphore.signal()
-				NSLog("Checked noncriticalProcessingAllowedSemaphore")
+				DLog("Checked noncriticalProcessingAllowedSemaphore")
 
+				// Do the work.
 				self.obtainAndExecuteWorkItem(critical: false)
 			}
 		}
@@ -538,17 +599,19 @@ public class FastImageLoader {
 	/// Starts execution of a critical work item pursuant to concurrency limits.
 	private func dispatchCriticalWorkItem() {
 		criticalProcessingDispatchQueue.async {
-
 			// Since the criticalProcessingWorkQueue is concurrent, limit the concurrent volume here.
 			self.criticalProcessingDispatchQueueSemaphore.wait()
 
 			self.criticalProcessingWorkQueue.async {
+				// Update the active count so we know if there are critical work items by checking both the queue and the count.
 				self.workItemQueueDispatchQueue.sync {
 					self.criticalProcessingActiveCount += 1
 				}
 
+				// Do the work.
 				self.obtainAndExecuteWorkItem(critical: true)
 
+				// Update the active count again and see if we need to unblock non-critical processing.
 				self.workItemQueueDispatchQueue.sync {
 					self.criticalProcessingActiveCount -= 1
 
@@ -558,12 +621,13 @@ public class FastImageLoader {
 							if ( !haveCritical && !self.workItemQueuesHasNoCritical ) {
 								self.workItemQueuesHasNoCritical = true
 								self.noncriticalProcessingAllowedSemaphore.signal()
-								NSLog("Gave noncriticalProcessingAllowedSemaphore")
+								DLog("Gave noncriticalProcessingAllowedSemaphore")
 							}
 						}
 					}
 				}
 
+				// Allow the next critical work item in.
 				self.criticalProcessingDispatchQueueSemaphore.signal()
 			}
 		}
@@ -575,14 +639,14 @@ public class FastImageLoader {
 	private func obtainAndExecuteWorkItem( critical:Bool ) {
 		if let item = self.nextWorkItem( critical: critical ) {
 			if let workItem = item.workItem {
-				print("processWorkItem is \(workItem.uid) retain \(workItem.retainCount) pri \(workItem.priority)")
 				if ( workItem.retainCount <= 0 )
 				{
-					print("skipped old")
+					// We were able to get an item with a workItem, but it was an item nobody cared about, so skip it.
 					return
 				}
 			}
 
+			// We were able to get an item, so execute it.
 			self.executeWorkItem(item: item)
 		}
 	}
@@ -601,28 +665,32 @@ public class FastImageLoader {
 				// Only check this priority if critical XOR non-critical-priority
 				if ( critical != (priority != 1) ) {
 					if let queue = workItemQueues[priority] {
-						var removeCount = 0
+						// removeIndex will always be zero for now, but exists for possible skipping-but-not-removing of items in the future.  (Or deletion of the removeIndex variable.)
+						var removeIndex = 0
+
 						for item in queue {
-							removeCount += 1
 							if ( item.workItem?.retainCount ?? 0 > 0 ) {
-								workItemQueues[priority]!.removeFirst(removeCount)
+								// We found an item somebody cares about, so remove it and prepare to return.
+
+								workItemQueues[priority]!.remove(at: removeIndex)
 								result = item
 								break outerLoop
 							}
 							else {
 								// Remove from queue if it is not retained, so they will not accumulate
-								NSLog("Cancel unretained workItem \(item.uid)")
+
 								item.workItem?.isCancelled = true
 								item.workItem = nil // Clear the reference for now, but if we kept it we would be able to resume it later, so this could be revisited.
-								workItemQueues[priority]!.remove(at: removeCount - 1)
-								removeCount -= 1
+								workItemQueues[priority]!.remove(at: removeIndex)
+								removeIndex -= 1
 							}
+							removeIndex += 1
 						}
 					}
 				}
 			}
 
-			NSLog("nextWorkItem is \(String(describing: result?.workItem?.uid))")
+			DLog("nextWorkItem is \(String(describing: result?.workItem?.uid))")
 		}
 
 		return result
@@ -633,33 +701,47 @@ public class FastImageLoader {
 	/// - Parameter item: The item to execute on.
 	private func executeWorkItem( item: LoaderItem ) {
 		if let workItem = item.workItem {
-			NSLog("execute \(workItem.uid) at \(workItem.state)")
+			// We have a workItem, so make it do some work.
+
+			DLog("execute \(workItem.uid) at \(workItem.state)")
 			if let result = workItem.next(thumbnailPixels: self.thumbnailPixels) {
-				NSLog("execute good \(workItem.uid)")
+				// The workItem gave us an image we can store.  The workItem already took care of any notifications.
+
+				DLog("execute good \(workItem.uid)")
+
+				// Store and update volume.
 				item.results[result.size.height] = result
 				maxResultsVolumeBytes += result.cgImage!.height * result.cgImage!.bytesPerRow
+
+				// Ensure we aren't over quota.  In this case it would be due to having too many bytes used after adding this one.
 				checkQuotas()
 
 				if ( workItem.final ) {
-					NSLog("Final workItem \(item.uid)")
+					// No more work to do, so clear the workItem.
+					DLog("Final workItem \(item.uid)")
 					item.workItem = nil
 				}
 				else {
-					enqueueWork(item: item) // To process next level of image
+					// Put the item back in for processing of the next level of image.
+					enqueueWork(item: item)
 				}
 			}
 			else {
-				NSLog("execute nil \(workItem.uid)")
+				// The workItem gave us nothing, so it must be done.
+
+				DLog("execute nil \(workItem.uid)")
+
+				// Do some error checking.
 				if ( item.results.count == 0 && workItem.retainCount > 0 ) {
 					if ( workItem.isForcedOut ) {
-						print("was forced out")
+						DLog("was forced out")
 					}
 					else {
 						fatalError("done without result is bad")
 					}
 				}
-				// nil result so it is done.  Remove from work items.
-				NSLog("nil workItem \(item.uid)")
+
+				// Remove from work items.
 				item.workItem = nil
 			}
 		}

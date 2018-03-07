@@ -10,6 +10,7 @@
 		8D0FD8DC204F35BF002E9DF0 /* LoaderItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D0FD8DB204F35BF002E9DF0 /* LoaderItem.swift */; };
 		8D0FD8DE204F363A002E9DF0 /* DataIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D0FD8DD204F363A002E9DF0 /* DataIdentity.swift */; };
 		8D0FD8E0204F37D8002E9DF0 /* UIImageViewUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D0FD8DF204F37D8002E9DF0 /* UIImageViewUpdater.swift */; };
+		8D0FD8E32050952B002E9DF0 /* Logging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D0FD8E22050952B002E9DF0 /* Logging.swift */; };
 		8D152887203B65FD00843907 /* MJFastImageLoader.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8D15287D203B65FD00843907 /* MJFastImageLoader.framework */; };
 		8D15288C203B65FD00843907 /* MJFastImageLoaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D15288B203B65FD00843907 /* MJFastImageLoaderTests.swift */; };
 		8D15288E203B65FD00843907 /* MJFastImageLoader.h in Headers */ = {isa = PBXBuildFile; fileRef = 8D152880203B65FD00843907 /* MJFastImageLoader.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -33,6 +34,7 @@
 		8D0FD8DB204F35BF002E9DF0 /* LoaderItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoaderItem.swift; sourceTree = "<group>"; };
 		8D0FD8DD204F363A002E9DF0 /* DataIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataIdentity.swift; sourceTree = "<group>"; };
 		8D0FD8DF204F37D8002E9DF0 /* UIImageViewUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIImageViewUpdater.swift; sourceTree = "<group>"; };
+		8D0FD8E22050952B002E9DF0 /* Logging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logging.swift; sourceTree = "<group>"; };
 		8D15287D203B65FD00843907 /* MJFastImageLoader.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = MJFastImageLoader.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		8D152880203B65FD00843907 /* MJFastImageLoader.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MJFastImageLoader.h; sourceTree = "<group>"; };
 		8D152881203B65FD00843907 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -94,6 +96,7 @@
 				8DDD5131204730640079B547 /* WorkItem.swift */,
 				8D0FD8DB204F35BF002E9DF0 /* LoaderItem.swift */,
 				8D0FD8DD204F363A002E9DF0 /* DataIdentity.swift */,
+				8D0FD8E22050952B002E9DF0 /* Logging.swift */,
 			);
 			path = MJFastImageLoader;
 			sourceTree = "<group>";
@@ -225,6 +228,7 @@
 				8DDD5132204730640079B547 /* WorkItem.swift in Sources */,
 				8DDD512E20472FE70079B547 /* FastImageLoaderNotification.swift in Sources */,
 				8D152898203B667500843907 /* FastImageLoader.swift in Sources */,
+				8D0FD8E32050952B002E9DF0 /* Logging.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
