@@ -263,7 +263,7 @@ public class FastImageLoader {
 	/// Removes all content from cache and work queues.
 	public func flush() {
 		print("flush")
-		// fixme - this is a bit race-prone.  Should stop outstanding work and / or prevent the actions below from being concurrent with other use of these objects.
+		// TODO: - Check for any possible race conditions.  Maybe should stop/flush outstanding work queues and/or put the actions below in their corresponding GCD queues.
 		// Stop the queues first
 		workItemQueues = [:]
 		itemsAccessQueue.sync {
@@ -401,13 +401,13 @@ public class FastImageLoader {
 
 						// If there are no more versions, indicate forced out.
 						if ( item.results.count == 0 && !noLongerNeeded ) {
-							// fixme - This is just preventative, in case WorkItem doesn't deinit right away.  Make sure it does deinit right away and then remove this
+							// TODO: Setting isForcedOut is just preventative, in case WorkItem doesn't deinit right away.  Make sure it does deinit right away and then remove this
 							item.workItem?.isForcedOut = true
 						}
 
 						// Don't work on it any more, since we have removed at least its largest product
 						if ( nil != item.workItem?.currentImage ) {
-							// fixme - This is just preventative, in case WorkItem doesn't deinit right away.  Make sure it does deinit right away and then remove this
+							// TODO: Clearing currentImage is just preventative, in case WorkItem doesn't deinit right away.  Make sure it does deinit right away and then remove this
 							item.workItem?.currentImage = nil
 						}
 						NSLog("Remove workItem \(item.uid)")

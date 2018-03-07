@@ -49,7 +49,7 @@ open class FastImageLoaderBatch {
 	private var timeLimitWorkItem:DispatchWorkItem? = nil
 
 	func queueNotifyEvent(image: UIImage, notification: FastImageLoaderNotification) {
-		// fixme - This isn't blocking a UI thread, but it would still be good to evalute sync vs async for this method.
+		// TODO: This isn't blocking a UI thread, but it would still be good to evalute sync vs async for this method.
 		queue.sync {
 			if let index = notifications.index(of: notification) {
 				images[index] = image

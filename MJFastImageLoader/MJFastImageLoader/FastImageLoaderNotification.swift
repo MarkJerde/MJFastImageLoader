@@ -68,7 +68,7 @@ open class FastImageLoaderNotification: Equatable {
 		cancelled = true
 		_ = workItem?.release() // for our retain
 		workItem = nil
-		// fixme - if release brings it down to zero it should be cleaned up in FastImageLoader
+		// TODO: If workItem?.release() brings the WorkItem's interest down to zero the WorkItem should be cleaned up in FastImageLoader.
 	}
 
 	/// Responds with the equality of two notifications.
