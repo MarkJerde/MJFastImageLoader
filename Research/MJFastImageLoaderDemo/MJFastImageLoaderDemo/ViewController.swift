@@ -356,7 +356,7 @@ class ViewController: UIViewController {
 		imageDataIndex += 1
 		if ( enabled )
 		{
-			_ = FastImageLoader.shared.enqueue(image: data, priority: .critical)
+			FastImageLoader.shared.enqueue(image: data, priority: .critical)
 			DispatchQueue.main.sync {
 				print("do set image \(imageIndex) from index \(imageDatas.index(of: data))")
 				let updater = UIImageViewUpdater(imageView: imgView, batch: FastImageLoaderBatch.shared)
