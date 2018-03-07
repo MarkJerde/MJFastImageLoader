@@ -29,9 +29,49 @@
 import Foundation
 
 /// An image processing mechanism to provide faster image rendering of large images into UIImageView for improved user experience.
+///
+/// ### Usage Example: ###
+///
+/// *Add image to loader.*
+///
+/// This example adds the image in a `Data` instance to the `FastImageLoader`.
+///
+/// ```
+/// FastImageLoader.shared.enqueue(image: data, priority: .critical)
+/// ```
+///
+/// *Configure batching.*
+///
+/// This example configures batching for simultaneous burst display of content.
+///
+/// ```
+/// // Group up to six updates or as many as arrive within half a second of the first.
+/// FastImageLoaderBatch.shared.batchUpdateQuantityLimit = 6
+/// FastImageLoaderBatch.shared.batchUpdateTimeLimit = 0.5
+/// ```
+///
+/// *Retrieve image from loader.*
+///
+/// This example retrieves the processed UIImage from FastImageLoader and registers an update notification.
+///
+/// ```
+/// DispatchQueue.main.sync {
+///	    let updater = UIImageViewUpdater(imageView: imageView, batch: FastImageLoaderBatch.shared)
+///	    imageView.image = FastImageLoader.shared.image(image: data, notification: updater)
+/// }
+/// ```
+///
+/// *Cancel update notifications.*
+///
+/// This example cancels update notifications and processing, such as when you want a different image in that UIImageView.
+///
+/// ```
+/// updater.cancel()
+/// FastImageLoader.shared.cancel(image: data)
+/// ```
 public class FastImageLoader {
 
-	// MARK: Public Instantiation and Access
+	// MARK: - Public Instantiation and Access
 
 	// Allow a singleton, for those who prefer that pattern
 	/// Returns the shared fast image loader.
@@ -45,7 +85,7 @@ public class FastImageLoader {
 	}
 
 
-	// MARK: Public Properties - Settings
+	// MARK: - Public Properties - Settings
 
 	/// The maximum width or height in pixels of the thumbnail render.  Can be decreased to limit render times.
 	public var thumbnailPixels:Float = 400.0
@@ -88,7 +128,7 @@ public class FastImageLoader {
 	}
 
 
-	// MARK: Public Methods and Values - Interaction
+	// MARK: - Public Methods and Values - Interaction
 
 	/// The priority level for processing.
 	///
@@ -162,6 +202,7 @@ public class FastImageLoader {
 	///
 	/// - Parameter image: The image to cancel processing for.
 	public func cancel(image: Data) {
+		// TODO: Should this also cancel all notifications for this item?  Otherwise the notification could come back to life if a future enqueue of this data resumes processing.
 		let identity = DataIdentity(data: image)
 		var item:LoaderItem? = nil
 		itemsAccessQueue.sync {
@@ -263,7 +304,7 @@ public class FastImageLoader {
 	/// Removes all content from cache and work queues.
 	public func flush() {
 		print("flush")
-		// TODO: - Check for any possible race conditions.  Maybe should stop/flush outstanding work queues and/or put the actions below in their corresponding GCD queues.
+		// TODO: Check for any possible race conditions.  Maybe should stop/flush outstanding work queues and/or put the actions below in their corresponding GCD queues.
 		// Stop the queues first
 		workItemQueues = [:]
 		itemsAccessQueue.sync {
@@ -280,7 +321,7 @@ public class FastImageLoader {
 	}
 
 
-	// MARK: Public Properties - Development / Debug Only
+	// MARK: - Public Properties - Development / Debug Only
 
 	// Just for development / debug to record quantity of processing that completes with nobody wanting notification any longer.
 	/// Development metric.  Do not use.
@@ -292,7 +333,7 @@ public class FastImageLoader {
 	public var ignoreCacheForTest = false // To limit benefit for test / demo
 
 
-	// MARK: Quota management
+	// MARK: - Quota management
 
 	/// Checks to ensure quotas are adhered to and releases resources if necessary.
 	private func checkQuotas() {
@@ -443,7 +484,7 @@ public class FastImageLoader {
 	}
 
 
-	// MARK: Execution flow
+	// MARK: - Execution flow
 
 	/// Adds an item to the workItemQueues, sets block on non-critical work if appropriate, and enqueues GCD call to execution method.
 	///
@@ -625,7 +666,7 @@ public class FastImageLoader {
 	}
 
 
-	// MARK: Private Variables - Settings
+	// MARK: - Private Variables - Settings
 
 	/// The last set concurrency limit, so we know how much to adjust by in what direction if a change is requested, since we can't query the semaphore for maximum value (since it doesn't even have a configurable maximum that it would allow us to put in).
 	private var criticalProcessingConcurrencyLimit = 12

@@ -30,6 +30,8 @@ import Foundation
 
 /// A queueing mechanism to improve user experience by grouping up to N updates that occur within a time limit.
 open class FastImageLoaderBatch {
+	// MARK: - Public Instantiation and Settings
+
 	// Allow a singleton, for those who prefer that pattern
 	/// Returns the shared batch.
 	public static let shared = FastImageLoaderBatch()
@@ -38,6 +40,8 @@ open class FastImageLoaderBatch {
 	public var batchUpdateQuantityLimit = 1
 	/// The maximum number of seconds to delay any notification before notifying all queued notifications.
 	public var batchUpdateTimeLimit = 0.2
+
+	// MARK: - Private Variables and Execution
 
 	/// The queued notifications.
 	private var notifications:[FastImageLoaderNotification] = []
