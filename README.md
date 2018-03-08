@@ -45,3 +45,10 @@ Code style is intended to follow the Xcode default styling whether I like it or 
 * It would make sense to have a single method which would enqueue work, set a UIImageView's image, and register notification.
 * Adaptive rendering levels based on requested QoS and observed render times would be good.
 * A default image to set before the first render would be good.
+
+## Data Observations
+While analyzing memory consumption and ensuring there were no leaks, it was discovered that MJFastImageLoader seems to decrease memory consumption compared with simply creating a UIImage from the Data and assigning it to imageView.image.
+
+![Memory Consumption Chart](Documentation/MemoryConsumption.png)
+
+In the chart above the MJFastImageLoaderDemo app is used to draw six images from 3000x4000 jpg data already  in Data objects.
