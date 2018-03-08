@@ -137,7 +137,7 @@ class WorkItem : Equatable {
 				#if DEBUG
 					// TrackedUIImage lets us examine promptness of deallocation of our largest memory consumer.
 					let result = TrackedUIImage(cgImage: thumbnail)
-					result.uid = self.uid
+					result.uid = uid
 					result.thumb = true
 				#else
 					let result = UIImage(cgImage: thumbnail)
@@ -173,7 +173,7 @@ class WorkItem : Equatable {
 				#if DEBUG
 					// TrackedUIImage lets us examine promptness of deallocation of our largest memory consumer.
 					let result = TrackedUIImage(cgImage: thumbnail)
-					result.uid = self.uid
+					result.uid = uid
 					result.thumb = true
 				#else
 					let result = UIImage(cgImage: thumbnail)
@@ -206,7 +206,7 @@ class WorkItem : Equatable {
 					// TrackedUIImage lets us examine promptness of deallocation of our largest memory consumer.
 					if ( nil != resultImage ) {
 						let trackedImage = TrackedUIImage(cgImage: resultImage!.cgImage!)
-						trackedImage.uid = self.uid
+						trackedImage.uid = uid
 						trackedImage.thumb = false
 						resultImage = trackedImage
 					}

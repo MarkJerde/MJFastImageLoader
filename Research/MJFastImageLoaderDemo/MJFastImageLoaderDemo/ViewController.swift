@@ -115,7 +115,7 @@ class ViewController: UIViewController {
 
 		FastImageLoader.shared.setCriticalProcessingConcurrencyLimit(limit: ProcessInfo.processInfo.activeProcessorCount)
 
-		self.startTest()
+		startTest()
 	}
 
 	//Calls this function when the tap is recognized.
@@ -210,7 +210,7 @@ class ViewController: UIViewController {
 
 		if ( running ) {
 			// Start auto activity in three seconds
-			self.testQueue.asyncAfter(deadline: .now() + .seconds(3), execute: {
+			testQueue.asyncAfter(deadline: .now() + .seconds(3), execute: {
 				// Configure for rapid rolling display of content
 				FastImageLoaderBatch.shared.batchUpdateQuantityLimit = 1
 
@@ -222,7 +222,7 @@ class ViewController: UIViewController {
 	func setStatus( force:Bool ) {
 		var status:String? = nil
 
-		if ( force || 0 == self.imagesSet % 6 ) {
+		if ( force || 0 == imagesSet % 6 ) {
 			if ( failed ) {
 				if ( !failStatusLock ) {
 					status = "Failed with Set \(imagesSet) Hit \(cacheHits) Waste \(FastImageLoader.wasteCount)"

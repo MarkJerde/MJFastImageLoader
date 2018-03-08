@@ -107,7 +107,7 @@ public class FastImageLoader {
 	///
 	/// - Parameter limit: The maximum number allowed.
 	public func setCriticalProcessingConcurrencyLimit( limit: Int ) {
-		if ( limit < self.criticalProcessingConcurrencyLimit ) {
+		if ( limit < criticalProcessingConcurrencyLimit ) {
 			// Adjust down
 			// Go async so we don't block the caller.  Use our own special queue to not block anything else.
 			DispatchQueue(label: "FastImageLoader.concurrencyAdjustQueue").async {
@@ -120,9 +120,9 @@ public class FastImageLoader {
 		}
 		else {
 			// Adjust up if needed
-			while ( limit > self.criticalProcessingConcurrencyLimit ) {
-				self.criticalProcessingDispatchQueueSemaphore.signal()
-				self.criticalProcessingConcurrencyLimit += 1
+			while ( limit > criticalProcessingConcurrencyLimit ) {
+				criticalProcessingDispatchQueueSemaphore.signal()
+				criticalProcessingConcurrencyLimit += 1
 			}
 		}
 	}
@@ -373,7 +373,6 @@ public class FastImageLoader {
 	private func checkQuotas() {
 		// Store values that are usually accessed thread-safe, but for a quick glance we are okay not synchronizing
 		let lruCount = leastRecentlyUsed.count
-		let maxResultsVolumeBytes = self.maxResultsVolumeBytes
 
 		let overImageCountLimit = lruCount > maximumCachedImages
 		let overImageBytesLimit = maxResultsVolumeBytes > maximumCachedBytes
@@ -385,7 +384,7 @@ public class FastImageLoader {
 			quotaRecoveryDispatchQueue.sync {
 				removeLeastRecentlyUsedItemsToFitQuota(pass: 0, overImageBytesLimit: overImageBytesLimit)
 
-				DLog("quota recovered to \(leastRecentlyUsed.count) and \(self.maxResultsVolumeBytes)")
+				DLog("quota recovered to \(leastRecentlyUsed.count) and \(maxResultsVolumeBytes)")
 			}
 
 			// The memory release may be delayed until GCD gets a chance to breathe.  So suspend the queues for a very short moment to allow time.
@@ -636,7 +635,7 @@ public class FastImageLoader {
 	///
 	/// - Parameter critical: True if for critical work, false otherwise.
 	private func obtainAndExecuteWorkItem( critical:Bool ) {
-		if let item = self.nextWorkItem( critical: critical ) {
+		if let item = nextWorkItem( critical: critical ) {
 			if let workItem = item.workItem {
 				if ( workItem.retainCount <= 0 ) {
 					// We were able to get an item with a workItem, but it was an item nobody cared about, so skip it.
@@ -645,7 +644,7 @@ public class FastImageLoader {
 			}
 
 			// We were able to get an item, so execute it.
-			self.executeWorkItem(item: item)
+			executeWorkItem(item: item)
 		}
 	}
 
@@ -702,7 +701,7 @@ public class FastImageLoader {
 			// We have a workItem, so make it do some work.
 
 			DLog("execute \(workItem.uid) at \(workItem.state)")
-			if let result = workItem.next(thumbnailPixels: self.thumbnailPixels) {
+			if let result = workItem.next(thumbnailPixels: thumbnailPixels) {
 				// The workItem gave us an image we can store.  The workItem already took care of any notifications.
 
 				DLog("execute good \(workItem.uid)")

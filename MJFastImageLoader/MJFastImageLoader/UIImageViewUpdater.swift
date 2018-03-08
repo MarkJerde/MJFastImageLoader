@@ -50,7 +50,7 @@ open class UIImageViewUpdater : FastImageLoaderNotification {
 	override open func notify(image: UIImage) {
 		// Ensure we are on the main thread.  Support either getting ourselves there or already being there.
 		if ( Thread.isMainThread ) {
-			self.updateImage(image: image)
+			updateImage(image: image)
 		}
 		else {
 			DispatchQueue.main.async {
