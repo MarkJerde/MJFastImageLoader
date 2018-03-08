@@ -799,4 +799,47 @@ public class FastImageLoader {
 	/// The GCD queue to ensure serialization of quota compliance work.
 	private let quotaRecoveryDispatchQueue = DispatchQueue(label: "FastImageLoader.quotaRecoveryDispatchQueue")
 
+	// MARK: - Test Hooks
+
+	/// The number of items currently held.
+	var count: Int {
+		var count = 0
+		itemsAccessQueue.sync {
+			count = items.count
+		}
+		return count
+	}
+
+	/// The number of items currently held.
+	var countWorkQueued: Int {
+		var sum = 0
+		workItemQueueDispatchQueue.sync {
+			workItemQueues.forEach { (queue) in
+				sum += queue.value.count
+			}
+		}
+		return sum
+	}
+
+	func blockUntilAllWorkCompleted() {
+		repeat {
+			var count = 0
+			// Steal all of the queues
+			criticalProcessingDispatchQueue.sync {
+				// Steal all of the semaphore
+				for _ in 1...criticalProcessingConcurrencyLimit {
+					self.criticalProcessingDispatchQueueSemaphore.wait()
+				}
+				processingQueue.sync {
+					workItemQueueDispatchQueue.sync {
+						count += 1
+					}
+				}
+				// Give it all back
+				for _ in 1...criticalProcessingConcurrencyLimit {
+					self.criticalProcessingDispatchQueueSemaphore.signal()
+				}
+			}
+		} while 0 < countWorkQueued
+	}
 }
