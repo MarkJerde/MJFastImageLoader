@@ -477,10 +477,12 @@ public class FastImageLoader {
 								let bytesThis = image.cgImage!.height * image.cgImage!.bytesPerRow
 								maxResultsVolumeBytes -= bytesThis
 
-								// If we are doing debug / analysis, help that along.
-								if let image = image as? WorkItem.TrackedUIImage {
-									image.shouldDeinitSoon(bool1: noLongerNeeded, bool2: noLongerRunning)
-								}
+								#if DEBUG
+									// If we are doing debug / analysis, help that along.
+									if let image = image as? WorkItem.TrackedUIImage {
+										image.shouldDeinitSoon(bool1: noLongerNeeded, bool2: noLongerRunning)
+									}
+								#endif
 							}
 							item.results[max] = nil
 							if ( leastRecentlyUsed.count <= maximumCachedImages ) {

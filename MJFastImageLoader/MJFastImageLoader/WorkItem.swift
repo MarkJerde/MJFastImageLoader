@@ -134,10 +134,14 @@ class WorkItem : Equatable {
 				] as CFDictionary
 
 			if let thumbnail = CGImageSourceCreateThumbnailAtIndex(imageSource!, 0, options) {
-				//let result = UIImage(cgImage: thumbnail)
-				let result = TrackedUIImage(cgImage: thumbnail)
-				result.uid = self.uid
-				result.thumb = true
+				#if DEBUG
+					// TrackedUIImage lets us examine promptness of deallocation of our largest memory consumer.
+					let result = TrackedUIImage(cgImage: thumbnail)
+					result.uid = self.uid
+					result.thumb = true
+				#else
+					let result = UIImage(cgImage: thumbnail)
+				#endif
 
 				if ( result.size.width >= cgThumbnailMaxPixels
 					|| result.size.height >= cgThumbnailMaxPixels ) {
@@ -166,7 +170,14 @@ class WorkItem : Equatable {
 				] as CFDictionary
 
 			if let thumbnail = CGImageSourceCreateThumbnailAtIndex(imageSource!, 0, options) {
-				let result = UIImage(cgImage: thumbnail)
+				#if DEBUG
+					// TrackedUIImage lets us examine promptness of deallocation of our largest memory consumer.
+					let result = TrackedUIImage(cgImage: thumbnail)
+					result.uid = self.uid
+					result.thumb = true
+				#else
+					let result = UIImage(cgImage: thumbnail)
+				#endif
 				currentImage = result
 				haveImage = true
 				notify(notification: notification, image: result, previous: nil)
@@ -190,11 +201,17 @@ class WorkItem : Equatable {
 
 				UIGraphicsBeginImageContextWithOptions(image.size, false, image.scale)
 				image.draw(at: .zero)
-				let resultImageA = UIGraphicsGetImageFromCurrentImageContext()
-				let resultImage = (nil == resultImageA) ? nil : TrackedUIImage(cgImage: resultImageA!.cgImage!)
+				var resultImage = UIGraphicsGetImageFromCurrentImageContext()
+				#if DEBUG
+					// TrackedUIImage lets us examine promptness of deallocation of our largest memory consumer.
+					if ( nil != resultImage ) {
+						let trackedImage = TrackedUIImage(cgImage: resultImage!.cgImage!)
+						trackedImage.uid = self.uid
+						trackedImage.thumb = false
+						resultImage = trackedImage
+					}
+				#endif
 				UIGraphicsEndImageContext()
-				resultImage?.uid = self.uid
-				resultImage?.thumb = false
 
 				if let resultImage = resultImage {
 					notify(notification: notification, image: resultImage, previous: nil)
