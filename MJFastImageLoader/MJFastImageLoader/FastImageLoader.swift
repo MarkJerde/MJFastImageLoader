@@ -777,13 +777,13 @@ public class FastImageLoader {
 	/// The semaphore to block non-critical work when appropriate.
 	private let noncriticalProcessingAllowedSemaphore = DispatchSemaphore(value: 1)
 
-	/// The semaphore used in one place to make critical processing semi-concurrent and non-blocking.
+	/// The GCD queue used in one place to make critical processing semi-concurrent and non-blocking.
 	private let criticalProcessingDispatchQueue = DispatchQueue(label: "FastImageLoader.criticalProcessingDispatchQueue")
 
-	/// The semaphore used in one place to make critical processing concurrent and non-blocking.
+	/// The GCD queue used in one place to make critical processing concurrent and non-blocking.
 	private let criticalProcessingWorkQueue = DispatchQueue(label: "FastImageLoader.criticalProcessingQueue", qos: .userInitiated, attributes: .concurrent)
 
-	/// The semaphore used in one place to make non-critical processing non-concurrent and non-blocking.
+	/// The GCD queue used in one place to make non-critical processing non-concurrent and non-blocking.
 	private let processingQueue = DispatchQueue(label: "FastImageLoader.processingQueue")
 
 	// All access to workItemQueues, workItemQueuesHasNoCritical, and criticalProcessingActiveCount is thread-safe via workItemQueueDispatchQueue
