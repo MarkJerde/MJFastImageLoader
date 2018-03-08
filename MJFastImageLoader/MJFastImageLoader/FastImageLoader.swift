@@ -470,9 +470,9 @@ public class FastImageLoader {
 
 					if ( okayToRemove ) {
 						// Remove the largest version of each image, or all versions if we are over count.
-						let sizes = item.results
-						allImages: while let max = sizes.keys.max() {
-							if let image = sizes[max] {
+						//let sizes = item.results
+						allImages: while let max = item.results.keys.max() {
+							if let image = item.results[max] {
 								// Adjust our accounting.
 								let bytesThis = image.cgImage!.height * image.cgImage!.bytesPerRow
 								maxResultsVolumeBytes -= bytesThis
