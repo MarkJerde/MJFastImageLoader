@@ -77,6 +77,10 @@ class WorkItem : Equatable {
 	/// The state of having already rendered at least one image.
 	private var haveImage = false
 
+	func restoreState( state:Int ) {
+		self.state = state
+	}
+
 
 	// MARK: Counting interested parties
 

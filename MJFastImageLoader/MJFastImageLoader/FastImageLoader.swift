@@ -181,8 +181,32 @@ public class FastImageLoader {
 					}
 					return
 				}
-				else if ( item.results.count > 0 ) {
-					// We have results but no work item, so we must be fully formed.
+				else if ( item.final ) {
+					if ( 0 == item.results.count ) {
+						fatalError("Unexpected to be final with no results.")
+					}
+					return
+				}
+				else if ( 0 < item.results.count ) {
+					// No WorkItem and not final.  Must have been cancelled.  Create new WorkItem and continue processing.
+
+					let workItem = WorkItem(data: image, uid: item.uid, basePriority: priority)
+					item.workItem = workItem
+
+					// Restore state so we don't render lower quality than necessary.
+					workItem.restoreState(state: item.resumeState)
+
+					// Move to back of LRU since someone enqueued it.
+					itemsAccessQueue.sync {
+						if let index = leastRecentlyUsed.index(of: identity) {
+							leastRecentlyUsed.remove(at: index)
+						}
+						leastRecentlyUsed.append(identity)
+					}
+
+					// Initiate work on the item.
+					enqueueWork(item: item)
+
 					return
 				}
 
@@ -484,6 +508,8 @@ public class FastImageLoader {
 								#endif
 							}
 							item.results[max] = nil
+							item.final = false
+							item.resumeState -= 1
 							if ( leastRecentlyUsed.count <= maximumCachedImages ) {
 								break allImages
 							}
@@ -713,10 +739,12 @@ public class FastImageLoader {
 				// Ensure we aren't over quota.  In this case it would be due to having too many bytes used after adding this one.
 				checkQuotas()
 
+				item.resumeState = workItem.state
 				if ( workItem.final ) {
 					// No more work to do, so clear the workItem.
 					DLog("Final workItem \(item.uid)")
 					item.workItem = nil
+					item.final = true
 				}
 				else {
 					// Put the item back in for processing of the next level of image.

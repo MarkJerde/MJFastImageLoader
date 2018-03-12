@@ -39,6 +39,12 @@ class LoaderItem : Equatable {
 	/// The uid for the LoaderItem.
 	private(set) var uid = -1
 
+	/// The condition of being fully rendered at fullest resolution.
+	var final = false
+
+	/// The WorkItem state to resume at if cancelled and resumed.
+	var resumeState = 0
+
 	/// Creates a loader item object initialized with the provided WorkItem.
 	///
 	/// - Parameter workItem: The WorkItem to use.
