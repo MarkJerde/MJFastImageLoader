@@ -15,6 +15,7 @@
 		8D15288C203B65FD00843907 /* MJFastImageLoaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D15288B203B65FD00843907 /* MJFastImageLoaderTests.swift */; };
 		8D15288E203B65FD00843907 /* MJFastImageLoader.h in Headers */ = {isa = PBXBuildFile; fileRef = 8D152880203B65FD00843907 /* MJFastImageLoader.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		8D152898203B667500843907 /* FastImageLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D152897203B667500843907 /* FastImageLoader.swift */; };
+		8D15C4E42054E4FD0086B0EB /* TestNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D15C4E32054E4FD0086B0EB /* TestNotification.swift */; };
 		8DDD512E20472FE70079B547 /* FastImageLoaderNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDD512D20472FE70079B547 /* FastImageLoaderNotification.swift */; };
 		8DDD5130204730360079B547 /* FastImageLoaderBatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDD512F204730360079B547 /* FastImageLoaderBatch.swift */; };
 		8DDD5132204730640079B547 /* WorkItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDD5131204730640079B547 /* WorkItem.swift */; };
@@ -42,6 +43,7 @@
 		8D15288B203B65FD00843907 /* MJFastImageLoaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MJFastImageLoaderTests.swift; sourceTree = "<group>"; };
 		8D15288D203B65FD00843907 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		8D152897203B667500843907 /* FastImageLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FastImageLoader.swift; sourceTree = "<group>"; };
+		8D15C4E32054E4FD0086B0EB /* TestNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestNotification.swift; sourceTree = "<group>"; };
 		8DDD512D20472FE70079B547 /* FastImageLoaderNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FastImageLoaderNotification.swift; sourceTree = "<group>"; };
 		8DDD512F204730360079B547 /* FastImageLoaderBatch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FastImageLoaderBatch.swift; sourceTree = "<group>"; };
 		8DDD5131204730640079B547 /* WorkItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkItem.swift; sourceTree = "<group>"; };
@@ -106,6 +108,7 @@
 			children = (
 				8D15288B203B65FD00843907 /* MJFastImageLoaderTests.swift */,
 				8D15288D203B65FD00843907 /* Info.plist */,
+				8D15C4E32054E4FD0086B0EB /* TestNotification.swift */,
 			);
 			path = MJFastImageLoaderTests;
 			sourceTree = "<group>";
@@ -236,6 +239,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8D15C4E42054E4FD0086B0EB /* TestNotification.swift in Sources */,
 				8D15288C203B65FD00843907 /* MJFastImageLoaderTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

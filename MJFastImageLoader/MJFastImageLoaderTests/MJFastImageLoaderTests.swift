@@ -3,7 +3,27 @@
 //  MJFastImageLoaderTests
 //
 //  Created by Mark Jerde on 2/19/18.
-//  Copyright © 2018 Mark Jerde. All rights reserved.
+//  Copyright © 2018 Mark Jerde.
+//
+//  This file is part of MJFastImageLoader
+//
+//  Permission is hereby granted, free of charge, to any person obtaining a copy
+//  of MJFastImageLoader and associated documentation files (the "Software"), to
+//  deal in the Software without restriction, including without limitation the
+//  rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+//  sell copies of the Software, and to permit persons to whom the Software is
+//  furnished to do so, subject to the following conditions:
+//
+//  The above copyright notice and this permission notice shall be included in all
+//  copies or substantial portions of the Software.
+//
+//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+//  SOFTWARE.
 //
 
 import XCTest
@@ -159,6 +179,143 @@ class FastImageLoaderTests: XCTestCase {
 			if let image = image {
 				XCTAssertEqual(image.size.width, expectedWidth, "Expected width \(expectedWidth) but found \(image.size.width) for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
 				XCTAssertEqual(image.size.height, expectedHeight, "Expected height \(expectedHeight) but found \(image.size.width) for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
+			}
+		}
+	}
+
+	func testNotificationsAndRenderSizes() {
+
+		let scale = UIScreen.main.scale
+		let expectedWidth = 3000 * scale
+		let expectedHeight = 4000 * scale
+		let expectedThumbnailWidth = CGFloat(300)
+		let expectedThumbnailHeight = CGFloat(400)
+
+		let imageData = FastImageLoaderTests.images[0]
+
+		let notification = TestNotification(batch: nil)
+		FastImageLoader.shared.enqueue(image: imageData, priority: .critical)
+		let cacheImage = FastImageLoader.shared.image(image: imageData, notification: notification)
+
+		XCTAssertNil(cacheImage, "Expected nil cacheImage.")
+
+		var ( count, width, height ) = notification.waitForNotify()
+
+		XCTAssertEqual(count, 1, "Expected first notification.")
+		XCTAssertEqual(width, expectedThumbnailWidth, "Expected width \(expectedThumbnailWidth) but found \(width) for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
+		XCTAssertEqual(height, expectedThumbnailHeight, "Expected height \(expectedThumbnailHeight) but found \(height) for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
+
+		( count, width, height ) = notification.waitForNotify()
+
+		XCTAssertEqual(count, 2, "Expected second notification.")
+		XCTAssertEqual(width, expectedWidth, "Expected width \(expectedWidth) but found \(width) for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
+		XCTAssertEqual(height, expectedHeight, "Expected height \(expectedHeight) but found \(height) for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
+	}
+
+	func testCancel() {
+
+		let scale = UIScreen.main.scale
+		let expectedWidth = 3000 * scale
+		let expectedHeight = 4000 * scale
+		let expectedThumbnailWidth = CGFloat(300)
+		let expectedThumbnailHeight = CGFloat(400)
+
+		let imageData = FastImageLoaderTests.images[0]
+
+		let notification = TestNotification(batch: nil)
+		notification.setCompletion {
+			notification.cancel()
+			FastImageLoader.shared.cancel(image: imageData)
+		}
+		FastImageLoader.shared.enqueue(image: imageData, priority: .critical)
+		let cacheImage = FastImageLoader.shared.image(image: imageData, notification: notification)
+
+		XCTAssertNil(cacheImage, "Expected nil cacheImage.")
+
+		var ( count, width, height ) = notification.waitForNotify()
+
+		XCTAssertEqual(count, 1, "Expected first notification.")
+		XCTAssertEqual(width, expectedThumbnailWidth, "Expected width \(expectedThumbnailWidth) but found \(width) for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
+		XCTAssertEqual(height, expectedThumbnailHeight, "Expected height \(expectedThumbnailHeight) but found \(height) for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
+
+		FastImageLoader.shared.blockUntilAllWorkCompleted()
+
+		let finalImage = FastImageLoader.shared.image(image: imageData, notification: nil)
+
+		XCTAssertNotNil(finalImage, "Expected not-nil cacheImage.")
+
+		width = finalImage!.size.width
+		height = finalImage!.size.height
+
+		XCTAssertEqual(width, expectedThumbnailWidth, "Expected width \(expectedThumbnailWidth) but found \(width) for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
+		XCTAssertEqual(height, expectedThumbnailHeight, "Expected height \(expectedThumbnailHeight) but found \(height) for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
+	}
+
+	func testCancelAndRequeue() {
+
+		let scale = UIScreen.main.scale
+		let expectedWidth = 3000 * scale
+		let expectedHeight = 4000 * scale
+		let expectedThumbnailWidth = CGFloat(300)
+		let expectedThumbnailHeight = CGFloat(400)
+
+		let imageData = FastImageLoaderTests.images[0]
+
+		let notification = TestNotification(batch: nil)
+		notification.setCompletion {
+			notification.cancel()
+			FastImageLoader.shared.cancel(image: imageData)
+		}
+		FastImageLoader.shared.enqueue(image: imageData, priority: .critical)
+		var cacheImage = FastImageLoader.shared.image(image: imageData, notification: notification)
+
+		XCTAssertNil(cacheImage, "Expected nil cacheImage.")
+
+		var ( count, width, height ) = notification.waitForNotify()
+
+		XCTAssertEqual(count, 1, "Expected first notification.")
+		XCTAssertEqual(width, expectedThumbnailWidth, "Expected width \(expectedThumbnailWidth) but found \(width) for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
+		XCTAssertEqual(height, expectedThumbnailHeight, "Expected height \(expectedThumbnailHeight) but found \(height) for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
+
+		FastImageLoader.shared.blockUntilAllWorkCompleted()
+
+		let finalImage = FastImageLoader.shared.image(image: imageData, notification: nil)
+
+		XCTAssertNotNil(finalImage, "Expected not-nil finalImage.")
+
+		width = finalImage!.size.width
+		height = finalImage!.size.height
+
+		XCTAssertEqual(width, expectedThumbnailWidth, "Expected width \(expectedThumbnailWidth) but found \(width) for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
+		XCTAssertEqual(height, expectedThumbnailHeight, "Expected height \(expectedThumbnailHeight) but found \(height) for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
+
+		let expect = expectation(description: "Expect to be notified of new render within one second.")
+
+		DispatchQueue(label: "FastImageLoaderTest.asyncQueue").async {
+			let notification2 = TestNotification(batch: nil)
+			FastImageLoader.shared.enqueue(image: imageData, priority: .critical)
+			cacheImage = FastImageLoader.shared.image(image: imageData, notification: notification2)
+
+			XCTAssertNotNil(cacheImage, "Expected not-nil cacheImage.")
+
+			width = cacheImage!.size.width
+			height = cacheImage!.size.height
+
+			XCTAssertEqual(width, expectedThumbnailWidth, "Expected width \(expectedThumbnailWidth) but found \(width) for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
+			XCTAssertEqual(height, expectedThumbnailHeight, "Expected height \(expectedThumbnailHeight) but found \(height) for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
+
+			( count, width, height ) = notification2.waitForNotify()
+
+			expect.fulfill()
+
+			XCTAssertEqual(count, 1, "Expected first notification.")
+			XCTAssertEqual(width, expectedWidth, "Expected width \(expectedWidth) but found \(width) for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
+			XCTAssertEqual(height, expectedHeight, "Expected height \(expectedHeight) but found \(height) for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
+		}
+
+		waitForExpectations(timeout: 60) { (error) in
+			if let error = error {
+				XCTFail("Error: \(error.localizedDescription)")
 			}
 		}
 	}
