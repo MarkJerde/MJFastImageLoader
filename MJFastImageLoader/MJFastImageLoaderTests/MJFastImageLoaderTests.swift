@@ -319,6 +319,12 @@ class FastImageLoaderTests: XCTestCase {
 			}
 		}
 	}
+
+	func testDataIdentitySmallCount() {
+		let smallImage = UIImageJPEGRepresentation(UIImage(color: UIColor.blue, size: CGSize(width: 30,height: 40))!, 0)!
+
+		_ = DataIdentity(data: smallImage)
+	}
     
     func testDataIdentityPerformance() {
         // This is an example of a performance test case.

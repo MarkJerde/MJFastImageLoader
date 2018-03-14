@@ -50,7 +50,7 @@ class DataIdentity : Equatable, Hashable {
 		let maximumSampleSize = 3200
 		let short = data.count < maximumSampleSize
 		let partial1Start = short ? 1 : (data.count / 100 * 50)
-		var partial1End = short ? data.count : (data.count / 100 * 51)
+		var partial1End = short ? (data.count - 1) : (data.count / 100 * 51)
 		if ( partial1End - partial1Start > maximumSampleSize ) {
 			partial1End = partial1Start + maximumSampleSize - 1
 		}
@@ -70,7 +70,7 @@ class DataIdentity : Equatable, Hashable {
 
 		// If the data is small, use all except the first two bytes for the secondary hash.  Otherwise use a early-ish one tenth of the data.
 		let partial2Start = short ? 1 : (data.count / 100 * 20)
-		var partial2End = short ? data.count : (data.count / 100 * 21)
+		var partial2End = short ? (data.count - 1) : (data.count / 100 * 21)
 		if ( partial2End - partial2Start > maximumSampleSize ) {
 			partial2End = partial2Start + maximumSampleSize - 1
 		}
