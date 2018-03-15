@@ -311,8 +311,11 @@ public class FastImageLoader {
 	/// - Parameters:
 	///   - image: The image to retrieve render for.
 	///   - notification: The notification to register with that image.
+	///   - notifyImmediateIfAvailable: If true, and there is a non-nil image to return, also push a notification in case it is fully rendered.
 	/// - Returns: Rendered image.
-	public func image(image: Data, notification: FastImageLoaderNotification?) -> UIImage? {
+	public func image(image: Data,
+					  notification: FastImageLoaderNotification?,
+					  notifyImmediateIfAvailable: Bool) -> UIImage? {
 		// Turn the large Data into a small DataIdentity.
 		let identity = DataIdentity(data: image)
 
@@ -349,7 +352,13 @@ public class FastImageLoader {
 
 			if let max = item.results.keys.max() {
 				// If there is a maximum key, then we have an image we can provide.
-				return item.results[max]
+				if let image = item.results[max] {
+					if ( notifyImmediateIfAvailable ) {
+						notification?.queueNotifyEvent(image: image)
+					}
+
+					return image
+				}
 			}
 		}
 
