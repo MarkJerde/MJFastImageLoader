@@ -361,7 +361,7 @@ class ViewController: UIViewController {
 				let updater = UIImageViewUpdater(imageView: imgView, batch: FastImageLoaderBatch.shared)
 				imageDatasInUse[imageIndex] = data
 				imageUpdaters[imageIndex] = updater
-				imgView.image = FastImageLoader.shared.image(image: data, notification: updater)
+				imgView.image = FastImageLoader.shared.image(image: data, notification: updater, notifyImmediateIfAvailable: false)
 				if ( nil != imgView.image ) {
 					print("non nil image")
 					cacheHits += 1
