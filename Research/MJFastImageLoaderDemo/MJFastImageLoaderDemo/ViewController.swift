@@ -361,7 +361,7 @@ class ViewController: UIViewController {
 				let updater = UIImageViewUpdater(imageView: imgView, batch: FastImageLoaderBatch.shared)
 				imageDatasInUse[imageIndex] = data
 				imageUpdaters[imageIndex] = updater
-				imgView.image = FastImageLoader.shared.image(image: data, notification: updater)
+				imgView.image = FastImageLoader.shared.image(image: data, notification: updater, notifyImmediateIfAvailable: false)
 				if ( nil != imgView.image ) {
 					print("non nil image")
 					cacheHits += 1
@@ -492,11 +492,13 @@ class ViewController: UIViewController {
 			}
 
 			if ( 0 == self.imageDatas.count ) {
-				self.statusLabel.text = "Downloading images..."
-				if let url = URL(string: "https://picsum.photos/5000/3000/?random") {
+				DispatchQueue.main.sync {
+					self.statusLabel.text = "Downloading images..."
 					self.imageViews.forEach({ (imgView) in
 						imgView.contentMode = .scaleAspectFit
 					})
+				}
+				if let url = URL(string: "https://picsum.photos/5000/3000/?random") {
 					self.testQueue.async {
 						let imageCount = 10
 						for i in 1...imageCount {

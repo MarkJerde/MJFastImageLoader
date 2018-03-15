@@ -37,81 +37,142 @@ open class FastImageLoaderBatch {
 	public static let shared = FastImageLoaderBatch()
 
 	/// The maximum number of notifications to enqueue before notifying.
-	public var batchUpdateQuantityLimit = 1
+	public var batchUpdateQuantityLimit:Int {
+		get {
+			return _batchUpdateQuantityLimit
+		}
+		set {
+			let decrease = newValue < _batchUpdateQuantityLimit
+
+			_batchUpdateQuantityLimit = newValue
+
+			if decrease {
+				// Only check quotas on decrease, since an increase won't result in there being too many existing items.
+				checkQuotas()
+			}
+		}
+	}
+
 	/// The maximum number of seconds to delay any notification before notifying all queued notifications.
 	public var batchUpdateTimeLimit = 0.2
 
 	// MARK: - Private Variables and Execution
 
 	/// The queued notifications.
-	private var notifications:[FastImageLoaderNotification] = []
-	/// The images for the queued notifications.
-	private var images:[UIImage] = []
+	private var batchItems:[FastImageLoaderBatchItem] = []
 	/// The GCD queue providing serialized accumulation.
 	private let queue = DispatchQueue(label: "FastImageLoaderBatch.queue")
 	/// The dispatch work item that will ensure the time limit.
 	private var timeLimitWorkItem:DispatchWorkItem? = nil
+	/// The maximum number of notifications to enqueue before notifying.
+	private var _batchUpdateQuantityLimit = 1
 
 	func queueNotifyEvent(image: UIImage, notification: FastImageLoaderNotification) {
 		// TODO: This isn't blocking a UI thread, but it would still be good to evalute sync vs async for this method.
 		queue.sync {
 			// Check if we already have a pending image for that notification.
-			if let index = notifications.index(of: notification) {
+			if let item = batchItems.first(where: {$0.notification == notification}) {
 				// We do, so update the image.
-				images[index] = image
+				item.image = image
 			}
 			else {
 				// We don't, so add one and its image.
-				notifications.append(notification)
-				images.append(image)
+				batchItems.append(FastImageLoaderBatchItem(notification: notification,
+														   image: image))
 			}
+		}
 
+		checkQuotas()
+	}
+
+	/// Checks to see if notifications should be sent or if a timer should be set.
+	func checkQuotas() {
+		queue.sync {
 			// Count how many non-cancelled notifications we have.  Ignore cancelled since nobody cares about them.
 			var nonCancelledCount = 0
-			for i in 0..<notifications.count {
-				if ( !notifications[i].cancelled ) {
+			for i in 0..<batchItems.count {
+				if ( !batchItems[i].notification.cancelled ) {
 					nonCancelledCount += 1
 				}
 			}
 
-			// See what we should do.
-			let first = 1 == nonCancelledCount
-			let hitQuota = nonCancelledCount >= batchUpdateQuantityLimit
-			if ( first ) {
-				// In case the previous timer were still running for content that had all been cancelled.
-				timeLimitWorkItem?.cancel()
-				timeLimitWorkItem = nil
-			}
-			if ( first || hitQuota ) {
-				let timeout:Double = hitQuota ? 0.0 : batchUpdateTimeLimit
+			if ( nonCancelledCount > 0 ) {
+				// See what we should do.
+				let first = 1 == nonCancelledCount
+				let hitCountLimit = nonCancelledCount >= batchUpdateQuantityLimit
+				if ( first ) {
+					// In case the previous timer were still running for content that had all been cancelled.
+					timeLimitWorkItem?.cancel()
+					timeLimitWorkItem = nil
+				}
+				if ( first || hitCountLimit ) {
+					let timeout:Double = hitCountLimit ? 0.0 : batchUpdateTimeLimit
 
-				// Cancel the previous timeLimitWorkItem if there were one.
-				timeLimitWorkItem?.cancel()
+					// Cancel the previous timeLimitWorkItem if there were one.
+					timeLimitWorkItem?.cancel()
 
-				// Create work item to do after timeout.
-				timeLimitWorkItem = DispatchWorkItem {
-					// Cancel the timeout, if there were one
-					self.timeLimitWorkItem?.cancel()
-					self.timeLimitWorkItem = nil
+					// Create work item to do after timeout.
+					timeLimitWorkItem = DispatchWorkItem {
+						// Cancel the timeout, if there were one
+						let timeLimitWorkItem = self.timeLimitWorkItem
+						self.timeLimitWorkItem?.cancel()
+						self.timeLimitWorkItem = nil
 
-					DLog("notify \(self.notifications.count) for \(hitQuota ? "quota" : "timeout")")
+						if ( !hitCountLimit ) {
+							let now = Date()
+							if nil == self.batchItems.first(where: {!$0.notification.cancelled && $0.earliestTimestamp + self.batchUpdateTimeLimit <= now}) {
+								// We did not find anything that was due at or before now and is not cancelled.  So nothing is actually due yet.  See if we can requeue or clear the list.
 
-					// Do our queued work
-					DispatchQueue.main.sync {
-						// Use the main queue so that batches will draw as one.  Yes, this matters.
-						for i in 0..<self.notifications.count {
-							if ( !self.notifications[i].cancelled ) {
-								self.notifications[i].notify(image: self.images[i])
+								if let item = self.batchItems.first(where: {!$0.notification.cancelled}) {
+									// Requeue for updated timeout.
+									let alreadyPassedTime = Date().timeIntervalSince(item.earliestTimestamp)
+									self.timeLimitWorkItem = timeLimitWorkItem
+									self.queue.asyncAfter(deadline: .now() + timeout - alreadyPassedTime, execute: timeLimitWorkItem!)
+
+								}
+								else {
+									// Everything must be cancelled now, so just remove them and return.
+									self.batchItems = []
+									return
+								}
 							}
 						}
-					}
-					self.notifications = []
-					self.images = []
-				}
 
-				// Submit work item to be done.
-				queue.asyncAfter(deadline: .now() + timeout, execute: timeLimitWorkItem!)
+						DLog("notify \(nonCancelledCount) for \(hitCountLimit ? "count" : "timeout")")
+
+						// Do our queued work
+						DispatchQueue.main.sync {
+							// Use the main queue so that batches will draw as one.  Yes, this matters.
+							self.batchItems.forEach({ (item) in
+								if ( !item.notification.cancelled ) {
+									item.notification.notify(image: item.image)								}
+							})
+						}
+						self.batchItems = []
+					}
+
+					// Submit work item to be done.
+					queue.asyncAfter(deadline: .now() + timeout, execute: timeLimitWorkItem!)
+				}
 			}
 		}
+	}
+}
+
+/// A simple collection of data to track notifications in the batch and what they are notified for.  Prevents having a multitude of arrays.
+// TODO: Evaluate the benefits of class vs struct for this.
+open class FastImageLoaderBatchItem {
+	/// The notification this item is for.
+	public let notification:FastImageLoaderNotification
+	/// The latest image for this notification.  Could be updated if additional renders happen before batch completion.
+	public var image:UIImage
+	/// The date at which this item joined that batch.  Will not be changed by additional renders since the display may still show no image.
+	public let earliestTimestamp:Date
+
+	public init( notification:FastImageLoaderNotification,
+				 image:UIImage ) {
+		self.notification = notification
+		self.image = image
+		earliestTimestamp = Date()
 	}
 }
