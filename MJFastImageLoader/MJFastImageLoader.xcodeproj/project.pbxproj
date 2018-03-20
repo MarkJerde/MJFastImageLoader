@@ -19,6 +19,7 @@
 		8DDD512E20472FE70079B547 /* FastImageLoaderNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDD512D20472FE70079B547 /* FastImageLoaderNotification.swift */; };
 		8DDD5130204730360079B547 /* FastImageLoaderBatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDD512F204730360079B547 /* FastImageLoaderBatch.swift */; };
 		8DDD5132204730640079B547 /* WorkItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDD5131204730640079B547 /* WorkItem.swift */; };
+		8DF2D79B206068B600EED8CA /* Utility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DF2D79A206068B600EED8CA /* Utility.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -47,6 +48,7 @@
 		8DDD512D20472FE70079B547 /* FastImageLoaderNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FastImageLoaderNotification.swift; sourceTree = "<group>"; };
 		8DDD512F204730360079B547 /* FastImageLoaderBatch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FastImageLoaderBatch.swift; sourceTree = "<group>"; };
 		8DDD5131204730640079B547 /* WorkItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkItem.swift; sourceTree = "<group>"; };
+		8DF2D79A206068B600EED8CA /* Utility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utility.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -99,6 +101,7 @@
 				8D0FD8DB204F35BF002E9DF0 /* LoaderItem.swift */,
 				8D0FD8DD204F363A002E9DF0 /* DataIdentity.swift */,
 				8D0FD8E22050952B002E9DF0 /* Logging.swift */,
+				8DF2D79A206068B600EED8CA /* Utility.swift */,
 			);
 			path = MJFastImageLoader;
 			sourceTree = "<group>";
@@ -226,6 +229,7 @@
 			files = (
 				8DDD5130204730360079B547 /* FastImageLoaderBatch.swift in Sources */,
 				8D0FD8DE204F363A002E9DF0 /* DataIdentity.swift in Sources */,
+				8DF2D79B206068B600EED8CA /* Utility.swift in Sources */,
 				8D0FD8E0204F37D8002E9DF0 /* UIImageViewUpdater.swift in Sources */,
 				8D0FD8DC204F35BF002E9DF0 /* LoaderItem.swift in Sources */,
 				8DDD5132204730640079B547 /* WorkItem.swift in Sources */,
