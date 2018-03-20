@@ -112,7 +112,7 @@ class FastImageLoaderTests: XCTestCase {
 		let expectedHeight = 4000 * scale
 
 		FastImageLoaderTests.images[0...2].forEach { (imageData) in
-			let image = FastImageLoader.shared.image(image: imageData, notification: nil)
+			let image = FastImageLoader.shared.image(image: imageData, notification: nil, notifyImmediateIfAvailable: false)
 			XCTAssertNotNil(image, "Missing image data for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
 			if let image = image {
 				XCTAssertEqual(image.size.width, expectedWidth, "Expected width \(expectedWidth) but found \(image.size.width) for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
@@ -131,7 +131,7 @@ class FastImageLoaderTests: XCTestCase {
 		XCTAssertEqual(FastImageLoader.shared.count, 4, "Expected to have four items in the loader.")
 
 		FastImageLoaderTests.images[0...3].forEach { (imageData) in
-			let image = FastImageLoader.shared.image(image: imageData, notification: nil)
+			let image = FastImageLoader.shared.image(image: imageData, notification: nil, notifyImmediateIfAvailable: false)
 			XCTAssertNotNil(image, "Missing image data for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
 			if let image = image {
 				XCTAssertEqual(image.size.width, expectedWidth, "Expected width \(expectedWidth) but found \(image.size.width) for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
@@ -150,7 +150,7 @@ class FastImageLoaderTests: XCTestCase {
 		XCTAssertEqual(FastImageLoader.shared.count, 6, "Expected to have six items in the loader.")
 
 		FastImageLoaderTests.images[0...5].forEach { (imageData) in
-			let image = FastImageLoader.shared.image(image: imageData, notification: nil)
+			let image = FastImageLoader.shared.image(image: imageData, notification: nil, notifyImmediateIfAvailable: false)
 			XCTAssertNotNil(image, "Missing image data for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
 			if let image = image {
 				XCTAssertEqual(image.size.width, expectedWidth, "Expected width \(expectedWidth) but found \(image.size.width) for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
@@ -169,12 +169,12 @@ class FastImageLoaderTests: XCTestCase {
 		XCTAssertEqual(FastImageLoader.shared.count, 6, "Expected to have six items in the loader.")
 
 		FastImageLoaderTests.images[0...2].forEach { (imageData) in
-			let image = FastImageLoader.shared.image(image: imageData, notification: nil)
+			let image = FastImageLoader.shared.image(image: imageData, notification: nil, notifyImmediateIfAvailable: false)
 			XCTAssertNil(image, "Unexpected image data for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
 		}
 
 		FastImageLoaderTests.images[3...8].forEach { (imageData) in
-			let image = FastImageLoader.shared.image(image: imageData, notification: nil)
+			let image = FastImageLoader.shared.image(image: imageData, notification: nil, notifyImmediateIfAvailable: false)
 			XCTAssertNotNil(image, "Missing image data for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
 			if let image = image {
 				XCTAssertEqual(image.size.width, expectedWidth, "Expected width \(expectedWidth) but found \(image.size.width) for \(String(describing: FastImageLoaderTests.images.index(of: imageData))).")
@@ -195,7 +195,7 @@ class FastImageLoaderTests: XCTestCase {
 
 		let notification = TestNotification(batch: nil)
 		FastImageLoader.shared.enqueue(image: imageData, priority: .critical)
-		let cacheImage = FastImageLoader.shared.image(image: imageData, notification: notification)
+		let cacheImage = FastImageLoader.shared.image(image: imageData, notification: notification, notifyImmediateIfAvailable: false)
 
 		XCTAssertNil(cacheImage, "Expected nil cacheImage.")
 
@@ -228,7 +228,7 @@ class FastImageLoaderTests: XCTestCase {
 			FastImageLoader.shared.cancel(image: imageData)
 		}
 		FastImageLoader.shared.enqueue(image: imageData, priority: .critical)
-		let cacheImage = FastImageLoader.shared.image(image: imageData, notification: notification)
+		let cacheImage = FastImageLoader.shared.image(image: imageData, notification: notification, notifyImmediateIfAvailable: false)
 
 		XCTAssertNil(cacheImage, "Expected nil cacheImage.")
 
@@ -240,7 +240,7 @@ class FastImageLoaderTests: XCTestCase {
 
 		FastImageLoader.shared.blockUntilAllWorkCompleted()
 
-		let finalImage = FastImageLoader.shared.image(image: imageData, notification: nil)
+		let finalImage = FastImageLoader.shared.image(image: imageData, notification: nil, notifyImmediateIfAvailable: false)
 
 		XCTAssertNotNil(finalImage, "Expected not-nil cacheImage.")
 
@@ -267,7 +267,7 @@ class FastImageLoaderTests: XCTestCase {
 			FastImageLoader.shared.cancel(image: imageData)
 		}
 		FastImageLoader.shared.enqueue(image: imageData, priority: .critical)
-		var cacheImage = FastImageLoader.shared.image(image: imageData, notification: notification)
+		var cacheImage = FastImageLoader.shared.image(image: imageData, notification: notification, notifyImmediateIfAvailable: false)
 
 		XCTAssertNil(cacheImage, "Expected nil cacheImage.")
 
@@ -279,7 +279,7 @@ class FastImageLoaderTests: XCTestCase {
 
 		FastImageLoader.shared.blockUntilAllWorkCompleted()
 
-		let finalImage = FastImageLoader.shared.image(image: imageData, notification: nil)
+		let finalImage = FastImageLoader.shared.image(image: imageData, notification: nil, notifyImmediateIfAvailable: false)
 
 		XCTAssertNotNil(finalImage, "Expected not-nil finalImage.")
 
@@ -294,7 +294,7 @@ class FastImageLoaderTests: XCTestCase {
 		DispatchQueue(label: "FastImageLoaderTest.asyncQueue").async {
 			let notification2 = TestNotification(batch: nil)
 			FastImageLoader.shared.enqueue(image: imageData, priority: .critical)
-			cacheImage = FastImageLoader.shared.image(image: imageData, notification: notification2)
+			cacheImage = FastImageLoader.shared.image(image: imageData, notification: notification2, notifyImmediateIfAvailable: false)
 
 			XCTAssertNotNil(cacheImage, "Expected not-nil cacheImage.")
 
