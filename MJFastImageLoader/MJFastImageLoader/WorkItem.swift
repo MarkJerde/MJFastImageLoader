@@ -123,6 +123,10 @@ class WorkItem : Equatable {
 		let cgThumbnailMaxPixels = CGFloat(thumbnailPixels)
 
 		DLog("state \(state)")
+		if ( 0 == state && Utility.mimeType_image_png == Utility.mimeTypeByGuessingFromData(data: data) ) {
+			// PNG renders thumbnails slower than the final, so just render the final right away.
+			state = 2
+		}
 		switch state {
 		case 0:
 			// Fastest first.  Use thumbnail if present.

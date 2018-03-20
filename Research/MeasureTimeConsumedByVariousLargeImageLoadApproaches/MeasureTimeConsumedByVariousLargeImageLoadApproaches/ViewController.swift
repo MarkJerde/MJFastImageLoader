@@ -46,9 +46,10 @@ class ViewController: UIViewController {
 	var burnData:Data? = nil
 	var testData:Data? = nil
 
-	let approaches = [ "Direct", "Preprocess1", "Thumbnail", "Thumbnail2" ]
+	let approaches = [ "Direct", "Preprocess1", "Thumbnail", "Thumbnail2", "DrawInRect" ] // CILanczosScaleTransform
 
 	var images:[UIImage] = []
+	var datas:[Data] = []
 	var timings:[Double] = []
 
 	// MARK: Standard Overrides
@@ -85,11 +86,12 @@ class ViewController: UIViewController {
 				{
 					// If there were a file with the name found below in the bundle, it would load here.  Useful for injecting a specific file, such as one known to have a thumbnail or a different image format.
 					do {
-						data = try NSData(contentsOfFile: Bundle.main.resourceURL!.appendingPathComponent("IMG_5388.JPG").path) as Data
+						data = try NSData(contentsOfFile: Bundle.main.resourceURL!.appendingPathComponent("Trumpet.png").path) as Data
 					} catch { }
 				}
 				for _ in 1...(self.needBurnInLoad ? self.burnInLoad : self.iterationsPerTest) {
 					self.images.append(UIImage(data: data)!)
+					self.datas.append(data)
 				}
 
 				if ( self.needBurnInLoad )
@@ -109,7 +111,9 @@ class ViewController: UIViewController {
 						//DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(4), execute: {
 							var burnCount = self.images.count - self.iterationsPerTest
 						var valid = true
+						var index = -1
 							self.images.forEach({ (image) in
+								index += 1
 								var resultImage:UIImage? = nil
 
 								var start = Date()
@@ -179,6 +183,50 @@ class ViewController: UIViewController {
 										resultImage = UIImage(cgImage: thumbnail)
 									}
 
+									end = Date()
+									break;
+
+								case "CILanczosScaleTransform":
+									let data = self.datas[index]
+									start = Date()
+									if let image = CIImage(data: data) {
+
+										let filter = CIFilter(name: "CILanczosScaleTransform")!
+										filter.setValue(image, forKey: "inputImage")
+										filter.setValue(0.5, forKey: "inputScale")
+										filter.setValue(1.0, forKey: "inputAspectRatio")
+										let outputImage = filter.value(forKey: "outputImage") as! CIImage
+
+										let context = CIContext(options: [kCIContextUseSoftwareRenderer: false])
+										let scaledImage = UIImage(cgImage: context.createCGImage(outputImage, from: outputImage.extent)!)
+
+										resultImage = scaledImage
+									}
+									end = Date()
+									break;
+
+								case "DrawInRect":
+									start = Date()
+									let size = image.size
+
+									let widthRatio  = 800.0  / size.width
+									let heightRatio = 800.0 / size.height
+
+									// Figure out what our orientation is, and use that to form the rectangle
+									var newSize: CGSize
+									if(widthRatio > heightRatio) {
+										newSize = CGSize(width: size.width * heightRatio, height: size.height * heightRatio)
+									} else {
+										newSize = CGSize(width: size.width * widthRatio,  height: size.height * widthRatio)
+									}
+
+									// This is the rect that we've calculated out and this is what is actually used below
+									let rect = CGRect(x: 0, y: 0, width: newSize.width, height: newSize.height)
+
+									UIGraphicsBeginImageContextWithOptions(newSize, false, image.scale)
+									image.draw(in: rect)
+									resultImage = UIGraphicsGetImageFromCurrentImageContext()
+									UIGraphicsEndImageContext()
 									end = Date()
 									break;
 
