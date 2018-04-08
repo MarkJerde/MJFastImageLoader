@@ -297,7 +297,7 @@ public class FastImageLoader {
 					}
 				}
 			}
-			else if ( item.results.count == 0 ) {
+			else if ( item.results.count == 0 && !item.dataWasCorrupt ) {
 				// We found an item without a workItem or results, which shouldn't happen.
 				fatalError("Cancelled before processing anything")
 			}
@@ -769,6 +769,10 @@ public class FastImageLoader {
 				if ( item.results.count == 0 && workItem.retainCount > 0 ) {
 					if ( workItem.isForcedOut ) {
 						DLog("was forced out")
+					}
+					else if ( workItem.dataWasCorrupt ) {
+						DLog("source data was corrupt")
+						item.dataWasCorrupt = true
 					}
 					else {
 						fatalError("done without result is bad")

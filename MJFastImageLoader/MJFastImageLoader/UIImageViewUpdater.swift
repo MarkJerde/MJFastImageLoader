@@ -47,7 +47,7 @@ open class UIImageViewUpdater : FastImageLoaderNotification {
 	/// - Note: It is unlikely that anyone outside MJFastImageLoader will call this method.  It is only given "open" access to allow it to be overridden in a subclass.
 	///
 	/// - Parameter image: The image that has been rendered.
-	override open func notify(image: UIImage) {
+	override open func notify(image: UIImage?) {
 		// Ensure we are on the main thread.  Support either getting ourselves there or already being there.
 		if ( Thread.isMainThread ) {
 			updateImage(image: image)
@@ -64,7 +64,7 @@ open class UIImageViewUpdater : FastImageLoaderNotification {
 	/// Updates the image on imageView.
 	///
 	/// - Parameter image: The image to use.
-	private func updateImage(image: UIImage) {
+	private func updateImage(image: UIImage?) {
 		DLog("update \(String(describing: imageView.accessibilityHint)) \(Date().timeIntervalSince1970)")
 		imageView.image = image
 	}

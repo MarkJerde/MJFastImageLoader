@@ -66,6 +66,8 @@ class WorkItem : Equatable {
 	var notification:FastImageLoaderNotification? = nil
 	/// The most recent rendering.
 	var currentImage:UIImage? = nil
+	/// The state of having determined the input data contained no image.
+	var dataWasCorrupt:Bool = false
 
 	/// The current state.
 	private(set) var state:Int = 0
@@ -222,13 +224,22 @@ class WorkItem : Equatable {
 				UIGraphicsEndImageContext()
 
 				if let resultImage = resultImage {
+					haveImage = true
 					notify(notification: notification, image: resultImage, previous: nil)
 				}
-				if ( nil != resultImage ) {
-					haveImage = true
+				else if !haveImage {
+					dataWasCorrupt = true
+					// Post a notification so that batching is satisfied.
+					notify(notification: notification, image: nil, previous: nil)
 				}
 				final = true
 				return resultImage
+			}
+
+			if !haveImage {
+				// Post a notification so that batching is satisfied.
+				notify(notification: notification, image: nil, previous: nil)
+				dataWasCorrupt = true
 			}
 
 			return nil
@@ -244,7 +255,7 @@ class WorkItem : Equatable {
 	///   - notification: The notification to start with.
 	///   - image: The image that has been rendered.
 	///   - previous: The previous notification in the linked list.
-	private func notify(notification: FastImageLoaderNotification?, image: UIImage, previous: FastImageLoaderNotification?) {
+	private func notify(notification: FastImageLoaderNotification?, image: UIImage?, previous: FastImageLoaderNotification?) {
 		// Handle the linked list ourselves so it is not vulnerable to breakage by implementors of items in it
 		if ( nil == notification && nil == previous ) {
 			// Update debug metric.

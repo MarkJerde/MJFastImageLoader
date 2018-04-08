@@ -51,7 +51,7 @@ open class FastImageLoaderNotification: Equatable {
 	/// - Note: It is unlikely that anyone outside MJFastImageLoader will call this method.  It is only given "open" access to allow it to be overridden in a subclass.
 	///
 	/// - Parameter image: The image that has been rendered.
-	open func notify(image: UIImage) {
+	open func notify(image: UIImage?) {
 	}
 
 	// MARK: - Internal Members
@@ -67,7 +67,7 @@ open class FastImageLoaderNotification: Equatable {
 	/// Adds the provided image to the batch and / or provides notification immediately.
 	///
 	/// - Parameter image: The image to notify with.
-	func queueNotifyEvent(image: UIImage) {
+	func queueNotifyEvent(image: UIImage?) {
 		if let batch = batch {
 			batch.queueNotifyEvent(image: image, notification: self)
 		}

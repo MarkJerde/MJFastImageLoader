@@ -67,13 +67,13 @@ open class FastImageLoaderBatch {
 	/// The maximum number of notifications to enqueue before notifying.
 	private var _batchUpdateQuantityLimit = 1
 
-	func queueNotifyEvent(image: UIImage, notification: FastImageLoaderNotification) {
+	func queueNotifyEvent(image: UIImage?, notification: FastImageLoaderNotification) {
 		// TODO: This isn't blocking a UI thread, but it would still be good to evalute sync vs async for this method.
 		queue.sync {
 			// Check if we already have a pending image for that notification.
 			if let item = batchItems.first(where: {$0.notification == notification}) {
 				// We do, so update the image.
-				item.image = image
+				item.image = image ?? item.image
 			}
 			else {
 				// We don't, so add one and its image.
@@ -165,12 +165,12 @@ open class FastImageLoaderBatchItem {
 	/// The notification this item is for.
 	public let notification:FastImageLoaderNotification
 	/// The latest image for this notification.  Could be updated if additional renders happen before batch completion.
-	public var image:UIImage
+	public var image:UIImage?
 	/// The date at which this item joined that batch.  Will not be changed by additional renders since the display may still show no image.
 	public let earliestTimestamp:Date
 
 	public init( notification:FastImageLoaderNotification,
-				 image:UIImage ) {
+				 image:UIImage? ) {
 		self.notification = notification
 		self.image = image
 		earliestTimestamp = Date()

@@ -42,12 +42,12 @@ open class TestNotification : FastImageLoaderNotification {
 	/// - Note: It is unlikely that anyone outside MJFastImageLoader will call this method.  It is only given "open" access to allow it to be overridden in a subclass.
 	///
 	/// - Parameter image: The image that has been rendered.
-	override open func notify(image: UIImage) {
+	override open func notify(image: UIImage?) {
 		completion?()
 		notificationDataSemaphore.wait()
 		notificationCount += 1
-		width = image.size.width
-		height = image.size.height
+		width = image?.size.width ?? -1
+		height = image?.size.height ?? -1
 		notificationWaiterSemaphore.signal()
 		notificationDataSemaphore.signal()
 	}
