@@ -100,11 +100,7 @@ open class FastImageLoaderBatch {
 				// See what we should do.
 				let first = 1 == nonCancelledCount
 				let hitCountLimit = nonCancelledCount >= batchUpdateQuantityLimit
-				if ( first ) {
-					// In case the previous timer were still running for content that had all been cancelled.
-					timeLimitWorkItem?.cancel()
-					timeLimitWorkItem = nil
-				}
+
 				if ( first || hitCountLimit ) {
 					let timeout:Double = hitCountLimit ? 0.0 : batchUpdateTimeLimit
 
