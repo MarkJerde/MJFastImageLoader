@@ -108,27 +108,29 @@ open class FastImageLoaderBatch {
 					timeLimitWorkItem?.cancel()
 
 					// Create work item to do after timeout.
-					timeLimitWorkItem = DispatchWorkItem {
+					timeLimitWorkItem = DispatchWorkItem { [weak self] in
+						guard let strongSelf = self else { return }
+						
 						// Cancel the timeout, if there were one
-						let timeLimitWorkItem = self.timeLimitWorkItem
-						self.timeLimitWorkItem?.cancel()
-						self.timeLimitWorkItem = nil
+						let timeLimitWorkItem = strongSelf.timeLimitWorkItem
+						strongSelf.timeLimitWorkItem?.cancel()
+						strongSelf.timeLimitWorkItem = nil
 
 						if ( !hitCountLimit ) {
 							let now = Date()
-							if nil == self.batchItems.first(where: {!$0.notification.cancelled && $0.earliestTimestamp + self.batchUpdateTimeLimit <= now}) {
+							if nil == strongSelf.batchItems.first(where: {!$0.notification.cancelled && $0.earliestTimestamp + strongSelf.batchUpdateTimeLimit <= now}) {
 								// We did not find anything that was due at or before now and is not cancelled.  So nothing is actually due yet.  See if we can requeue or clear the list.
 
-								if let item = self.batchItems.first(where: {!$0.notification.cancelled}) {
+								if let item = strongSelf.batchItems.first(where: {!$0.notification.cancelled}) {
 									// Requeue for updated timeout.
 									let alreadyPassedTime = Date().timeIntervalSince(item.earliestTimestamp)
-									self.timeLimitWorkItem = timeLimitWorkItem
-									self.queue.asyncAfter(deadline: .now() + timeout - alreadyPassedTime, execute: timeLimitWorkItem!)
+									strongSelf.timeLimitWorkItem = timeLimitWorkItem
+									strongSelf.queue.asyncAfter(deadline: .now() + timeout - alreadyPassedTime, execute: timeLimitWorkItem!)
 
 								}
 								else {
 									// Everything must be cancelled now, so just remove them and return.
-									self.batchItems = []
+									strongSelf.batchItems = []
 									return
 								}
 							}
@@ -139,12 +141,12 @@ open class FastImageLoaderBatch {
 						// Do our queued work
 						DispatchQueue.main.sync {
 							// Use the main queue so that batches will draw as one.  Yes, this matters.
-							self.batchItems.forEach({ (item) in
+							strongSelf.batchItems.forEach({ (item) in
 								if ( !item.notification.cancelled ) {
 									item.notification.notify(image: item.image)								}
 							})
 						}
-						self.batchItems = []
+						strongSelf.batchItems = []
 					}
 
 					// Submit work item to be done.
