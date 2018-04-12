@@ -182,9 +182,11 @@ public class FastImageLoader {
 					return
 				}
 				else if ( item.final ) {
-					if ( 0 == item.results.count ) {
-						fatalError("Unexpected to be final with no results.")
-					}
+					#if DEBUG
+						if ( 0 == item.results.count ) {
+							fatalError("Unexpected to be final with no results.")
+						}
+					#endif
 					return
 				}
 				else if ( 0 < item.results.count ) {
@@ -297,9 +299,13 @@ public class FastImageLoader {
 					}
 				}
 			}
-			else if ( item.results.count == 0 ) {
-				// We found an item without a workItem or results, which shouldn't happen.
-				fatalError("Cancelled before processing anything")
+			else {
+				#if DEBUG
+					if ( item.results.count == 0 && !item.dataWasCorrupt ) {
+						// We found an item without a workItem or results, which shouldn't happen.
+						fatalError("Cancelled before processing anything")
+					}
+				#endif
 			}
 		}
 
@@ -770,8 +776,14 @@ public class FastImageLoader {
 					if ( workItem.isForcedOut ) {
 						DLog("was forced out")
 					}
+					else if ( workItem.dataWasCorrupt ) {
+						DLog("source data was corrupt")
+						item.dataWasCorrupt = true
+					}
 					else {
-						fatalError("done without result is bad")
+						#if DEBUG
+							fatalError("done without result is bad")
+						#endif
 					}
 				}
 

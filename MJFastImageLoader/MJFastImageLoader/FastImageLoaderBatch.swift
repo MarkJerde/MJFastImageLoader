@@ -67,13 +67,13 @@ open class FastImageLoaderBatch {
 	/// The maximum number of notifications to enqueue before notifying.
 	private var _batchUpdateQuantityLimit = 1
 
-	func queueNotifyEvent(image: UIImage, notification: FastImageLoaderNotification) {
+	func queueNotifyEvent(image: UIImage?, notification: FastImageLoaderNotification) {
 		// TODO: This isn't blocking a UI thread, but it would still be good to evalute sync vs async for this method.
 		queue.sync {
 			// Check if we already have a pending image for that notification.
 			if let item = batchItems.first(where: {$0.notification == notification}) {
 				// We do, so update the image.
-				item.image = image
+				item.image = image ?? item.image
 			}
 			else {
 				// We don't, so add one and its image.
@@ -100,11 +100,7 @@ open class FastImageLoaderBatch {
 				// See what we should do.
 				let first = 1 == nonCancelledCount
 				let hitCountLimit = nonCancelledCount >= batchUpdateQuantityLimit
-				if ( first ) {
-					// In case the previous timer were still running for content that had all been cancelled.
-					timeLimitWorkItem?.cancel()
-					timeLimitWorkItem = nil
-				}
+
 				if ( first || hitCountLimit ) {
 					let timeout:Double = hitCountLimit ? 0.0 : batchUpdateTimeLimit
 
@@ -112,27 +108,29 @@ open class FastImageLoaderBatch {
 					timeLimitWorkItem?.cancel()
 
 					// Create work item to do after timeout.
-					timeLimitWorkItem = DispatchWorkItem {
+					timeLimitWorkItem = DispatchWorkItem { [weak self] in
+						guard let strongSelf = self else { return }
+						
 						// Cancel the timeout, if there were one
-						let timeLimitWorkItem = self.timeLimitWorkItem
-						self.timeLimitWorkItem?.cancel()
-						self.timeLimitWorkItem = nil
+						let timeLimitWorkItem = strongSelf.timeLimitWorkItem
+						strongSelf.timeLimitWorkItem?.cancel()
+						strongSelf.timeLimitWorkItem = nil
 
 						if ( !hitCountLimit ) {
 							let now = Date()
-							if nil == self.batchItems.first(where: {!$0.notification.cancelled && $0.earliestTimestamp + self.batchUpdateTimeLimit <= now}) {
+							if nil == strongSelf.batchItems.first(where: {!$0.notification.cancelled && $0.earliestTimestamp + strongSelf.batchUpdateTimeLimit <= now}) {
 								// We did not find anything that was due at or before now and is not cancelled.  So nothing is actually due yet.  See if we can requeue or clear the list.
 
-								if let item = self.batchItems.first(where: {!$0.notification.cancelled}) {
+								if let item = strongSelf.batchItems.first(where: {!$0.notification.cancelled}) {
 									// Requeue for updated timeout.
 									let alreadyPassedTime = Date().timeIntervalSince(item.earliestTimestamp)
-									self.timeLimitWorkItem = timeLimitWorkItem
-									self.queue.asyncAfter(deadline: .now() + timeout - alreadyPassedTime, execute: timeLimitWorkItem!)
+									strongSelf.timeLimitWorkItem = timeLimitWorkItem
+									strongSelf.queue.asyncAfter(deadline: .now() + timeout - alreadyPassedTime, execute: timeLimitWorkItem!)
 
 								}
 								else {
 									// Everything must be cancelled now, so just remove them and return.
-									self.batchItems = []
+									strongSelf.batchItems = []
 									return
 								}
 							}
@@ -143,12 +141,12 @@ open class FastImageLoaderBatch {
 						// Do our queued work
 						DispatchQueue.main.sync {
 							// Use the main queue so that batches will draw as one.  Yes, this matters.
-							self.batchItems.forEach({ (item) in
+							strongSelf.batchItems.forEach({ (item) in
 								if ( !item.notification.cancelled ) {
 									item.notification.notify(image: item.image)								}
 							})
 						}
-						self.batchItems = []
+						strongSelf.batchItems = []
 					}
 
 					// Submit work item to be done.
@@ -165,12 +163,12 @@ open class FastImageLoaderBatchItem {
 	/// The notification this item is for.
 	public let notification:FastImageLoaderNotification
 	/// The latest image for this notification.  Could be updated if additional renders happen before batch completion.
-	public var image:UIImage
+	public var image:UIImage?
 	/// The date at which this item joined that batch.  Will not be changed by additional renders since the display may still show no image.
 	public let earliestTimestamp:Date
 
 	public init( notification:FastImageLoaderNotification,
-				 image:UIImage ) {
+				 image:UIImage? ) {
 		self.notification = notification
 		self.image = image
 		earliestTimestamp = Date()

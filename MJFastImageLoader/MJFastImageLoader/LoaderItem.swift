@@ -42,6 +42,9 @@ class LoaderItem : Equatable {
 	/// The condition of being fully rendered at fullest resolution.
 	var final = false
 
+	/// The condition of having determined the input data contained no image.
+	var dataWasCorrupt = false
+
 	/// The WorkItem state to resume at if cancelled and resumed.
 	var resumeState = 0
 
